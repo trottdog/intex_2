@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ml.src.config.paths import raw_data_dir_candidates
+from ml.src.config.paths import PROCESSED_DATA_DIR, raw_data_dir_candidates
 from ml.src.data.cleaning import parse_dates, standardize_column_names
 from ml.src.data.schemas import DATE_COLUMNS, EXPECTED_TABLES
 
@@ -121,4 +121,68 @@ def load_raw_tables(
             read_csv_kwargs=read_csv_kwargs,
         )
         for table_name in selected_tables
+    }
+
+
+def list_available_processed_tables(data_dir: Path | None = None) -> list[str]:
+    """List available processed dataset names."""
+
+    source_dir = data_dir or PROCESSED_DATA_DIR
+    return sorted(path.stem for path in source_dir.glob("*.csv"))
+
+
+def load_processed_table(
+    table_name: str,
+    *,
+    data_dir: Path | None = None,
+    standardize_columns: bool = True,
+    parse_date_columns: bool = True,
+    read_csv_kwargs: Mapping[str, object] | None = None,
+) -> pd.DataFrame:
+    """Load a processed CSV dataset by name."""
+
+    source_dir = data_dir or PROCESSED_DATA_DIR
+    csv_path = source_dir / f"{table_name}.csv"
+
+    if not csv_path.exists():
+        available = ", ".join(list_available_processed_tables(source_dir))
+        raise FileNotFoundError(
+            f"Could not find {table_name}.csv in {source_dir}. "
+            f"Available processed tables: {available}"
+        )
+
+    csv_options = {"encoding": "utf-8-sig", "low_memory": False}
+    if read_csv_kwargs:
+        csv_options.update(read_csv_kwargs)
+
+    df = pd.read_csv(csv_path, **csv_options)
+
+    if standardize_columns:
+        df = standardize_column_names(df)
+
+    if parse_date_columns:
+        df = parse_dates(df)
+
+    return df
+
+
+def load_processed_tables(
+    table_names: Iterable[str],
+    *,
+    data_dir: Path | None = None,
+    standardize_columns: bool = True,
+    parse_date_columns: bool = True,
+    read_csv_kwargs: Mapping[str, object] | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Load multiple processed CSV datasets keyed by table name."""
+
+    return {
+        table_name: load_processed_table(
+            table_name,
+            data_dir=data_dir,
+            standardize_columns=standardize_columns,
+            parse_date_columns=parse_date_columns,
+            read_csv_kwargs=read_csv_kwargs,
+        )
+        for table_name in table_names
     }

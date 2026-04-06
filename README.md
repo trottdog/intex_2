@@ -18,7 +18,21 @@ The entire ML workspace now lives under the `ml/` umbrella folder so it stays se
 
 ## Next Steps
 
-1. Populate `ml/data/raw/` with source CSVs.
-2. Update pipeline `config.yaml` files with target definitions and feature choices.
-3. Implement dataset builders, training scripts, and evaluation logic in `ml/src/`.
-4. Use the notebooks in `ml/ml-pipelines/` for exploratory work and documentation.
+1. Expand from the Phase 3 predictive baselines into threshold tuning, calibration, and cross-validation reuse in Phase 4.
+2. Add the explanatory pipelines for campaign effectiveness and intervention effectiveness.
+3. Turn the saved Phase 3 artifacts into notebook narratives under `ml/ml-pipelines/`.
+4. Wire the generic scoring helpers in `ml/src/inference/` into the app integration examples.
+
+## Phase 3 Commands
+
+Train one predictive pipeline:
+
+```powershell
+py -3 ml/scripts/train_one.py donor_retention
+```
+
+Train all implemented predictive pipelines and write a summary report:
+
+```powershell
+py -3 ml/scripts/run_all_pipelines.py
+```

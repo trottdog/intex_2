@@ -45,14 +45,34 @@ def encode_features(
     )
 
     if categorical_columns is None or numeric_columns is None:
-        inferred_categorical = train_features.select_dtypes(
-            include=["object", "category", "bool", "string"]
-        ).columns.tolist()
+        inferred_categorical = [
+            column
+            for column in train_features.columns
+            if (
+                pd.api.types.is_object_dtype(train_features[column])
+                or isinstance(train_features[column].dtype, pd.CategoricalDtype)
+                or pd.api.types.is_bool_dtype(train_features[column])
+                or pd.api.types.is_string_dtype(train_features[column])
+            )
+        ]
         inferred_numeric = [
             column for column in train_features.columns if column not in inferred_categorical
         ]
         categorical_columns = inferred_categorical if categorical_columns is None else categorical_columns
         numeric_columns = inferred_numeric if numeric_columns is None else numeric_columns
+
+    if categorical_columns:
+        categorical_casts = {column: "object" for column in categorical_columns}
+        train_features = train_features.astype(categorical_casts)
+        if test_features is not None:
+            test_features = test_features.astype(categorical_casts)
+
+    if numeric_columns:
+        for column in numeric_columns:
+            train_features[column] = pd.to_numeric(train_features[column], errors="coerce")
+        if test_features is not None:
+            for column in numeric_columns:
+                test_features[column] = pd.to_numeric(test_features[column], errors="coerce")
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -110,7 +130,9 @@ def time_split_data(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split a dataframe into train and test partitions by time."""
 
-    ordered = df.sort_values(date_col).reset_index(drop=True)
+    ordered = df.copy()
+    ordered[date_col] = pd.to_datetime(ordered[date_col], errors="coerce")
+    ordered = ordered.loc[ordered[date_col].notna()].sort_values(date_col).reset_index(drop=True)
 
     if cutoff_date is None:
         split_index = max(1, int(len(ordered) * (1 - test_size)))
@@ -139,11 +161,14 @@ def make_baseline_models(
         return {
             "dummy_classifier": DummyClassifier(strategy="prior"),
             "logistic_regression": LogisticRegression(
-                max_iter=1000,
+                max_iter=2000,
+                solver="liblinear",
+                class_weight="balanced",
                 random_state=random_state,
             ),
             "random_forest_classifier": RandomForestClassifier(
                 n_estimators=200,
+                class_weight="balanced_subsample",
                 random_state=random_state,
             ),
         }
