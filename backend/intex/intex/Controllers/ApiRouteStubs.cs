@@ -7,7 +7,7 @@ namespace intex.Controllers;
 // Public (anonymous) impact dashboard
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/public")]
+[Route("public")]
 [AllowAnonymous]
 public class PublicImpactController : ControllerBase
 {
@@ -28,7 +28,7 @@ public class PublicImpactController : ControllerBase
 // Auth (anonymous for login/register)
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/auth")]
+[Route("auth")]
 [AllowAnonymous]
 public class AuthController : ControllerBase
 {
@@ -43,7 +43,7 @@ public class AuthController : ControllerBase
 // Supporters
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/supporters")]
+[Route("supporters")]
 public class SupportersController : ControllerBase
 {
     [HttpGet]
@@ -66,7 +66,7 @@ public class SupportersController : ControllerBase
 // Donations
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/donations")]
+[Route("donations")]
 public class DonationsController : ControllerBase
 {
     [HttpGet]
@@ -86,7 +86,7 @@ public class DonationsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/donations/{donationId:long}/allocations")]
+[Route("donations/{donationId:long}/allocations")]
 public class DonationAllocationsController : ControllerBase
 {
     [HttpGet]
@@ -107,7 +107,7 @@ public class DonationAllocationsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/donations/{donationId:long}/in-kind-items")]
+[Route("donations/{donationId:long}/in-kind-items")]
 public class InKindDonationItemsController : ControllerBase
 {
     [HttpGet]
@@ -122,7 +122,7 @@ public class InKindDonationItemsController : ControllerBase
 // Residents & nested case-management
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/residents")]
+[Route("residents")]
 public class ResidentsController : ControllerBase
 {
     [HttpGet]
@@ -142,7 +142,7 @@ public class ResidentsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/case-conferences")]
+[Route("residents/{residentId:long}/case-conferences")]
 public class ResidentCaseConferencesController : ControllerBase
 {
     [HttpGet]
@@ -163,7 +163,7 @@ public class ResidentCaseConferencesController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/home-visitations")]
+[Route("residents/{residentId:long}/home-visitations")]
 public class ResidentHomeVisitationsController : ControllerBase
 {
     [HttpGet]
@@ -184,7 +184,7 @@ public class ResidentHomeVisitationsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/process-recordings")]
+[Route("residents/{residentId:long}/process-recordings")]
 public class ResidentProcessRecordingsController : ControllerBase
 {
     [HttpGet]
@@ -205,7 +205,7 @@ public class ResidentProcessRecordingsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/education-records")]
+[Route("residents/{residentId:long}/education-records")]
 public class ResidentEducationRecordsController : ControllerBase
 {
     [HttpGet]
@@ -226,7 +226,7 @@ public class ResidentEducationRecordsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/health-wellbeing-records")]
+[Route("residents/{residentId:long}/health-wellbeing-records")]
 public class ResidentHealthWellbeingRecordsController : ControllerBase
 {
     [HttpGet]
@@ -247,7 +247,7 @@ public class ResidentHealthWellbeingRecordsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/incident-reports")]
+[Route("residents/{residentId:long}/incident-reports")]
 public class ResidentIncidentReportsController : ControllerBase
 {
     [HttpGet]
@@ -268,7 +268,7 @@ public class ResidentIncidentReportsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/residents/{residentId:long}/intervention-plans")]
+[Route("residents/{residentId:long}/intervention-plans")]
 public class ResidentInterventionPlansController : ControllerBase
 {
     [HttpGet]
@@ -292,7 +292,7 @@ public class ResidentInterventionPlansController : ControllerBase
 // Safehouses & monthly metrics
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/safehouses")]
+[Route("safehouses")]
 public class SafehousesController : ControllerBase
 {
     [HttpGet]
@@ -312,7 +312,7 @@ public class SafehousesController : ControllerBase
 }
 
 [ApiController]
-[Route("api/safehouses/{safehouseId:long}/monthly-metrics")]
+[Route("safehouses/{safehouseId:long}/monthly-metrics")]
 public class SafehouseMonthlyMetricsController : ControllerBase
 {
     [HttpGet]
@@ -327,7 +327,7 @@ public class SafehouseMonthlyMetricsController : ControllerBase
 // Partners
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/partners")]
+[Route("partners")]
 public class PartnersController : ControllerBase
 {
     [HttpGet]
@@ -347,7 +347,7 @@ public class PartnersController : ControllerBase
 }
 
 [ApiController]
-[Route("api/partner-assignments")]
+[Route("partner-assignments")]
 public class PartnerAssignmentsController : ControllerBase
 {
     [HttpGet]
@@ -361,7 +361,7 @@ public class PartnerAssignmentsController : ControllerBase
 // Social & published impact snapshots (staff / analytics)
 // -------------------------------------------------------------------------
 [ApiController]
-[Route("api/social-media-posts")]
+[Route("social-media-posts")]
 public class SocialMediaPostsController : ControllerBase
 {
     [HttpGet]
@@ -372,7 +372,7 @@ public class SocialMediaPostsController : ControllerBase
 }
 
 [ApiController]
-[Route("api/public-impact-snapshots")]
+[Route("public-impact-snapshots")]
 public class PublicImpactSnapshotsController : ControllerBase
 {
     [HttpGet]

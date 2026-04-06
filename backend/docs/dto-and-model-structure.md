@@ -327,7 +327,7 @@ public class CreateCaseConferenceDto
 }
 ```
 
-(`residentId` from route `api/residents/{residentId}/case-conferences`, not body, if that is your convention.)
+(`residentId` from route `residents/{residentId}/case-conferences`, not body, if that is your convention.)
 
 ---
 

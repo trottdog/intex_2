@@ -24,7 +24,7 @@ The backend owns:
 
 ## High-level data flow
 
-1. **React** sends HTTPS requests (JWT in `Authorization` or cookie session—team picks one and documents it in `auth-and-security.md`). Public pages may call **`api/public/…`** without auth.
+1. **React** sends HTTPS requests (JWT in `Authorization` or cookie session—team picks one and documents it in `auth-and-security.md`). Public pages may call **`public/…`** without auth.
 2. **API** runs authentication middleware where required; resolves roles **Admin** / **Donor**.
 3. **Controller** binds DTOs, authorizes the action, delegates to a **service**, returns DTOs (never raw EF entities).
 4. **Service** applies business rules, uses transactions when needed, maps entities ↔ DTOs; **resolves `supporter_id` from Identity** for donor-scoped reads.
@@ -49,7 +49,7 @@ The **repository root** file **`schema.sql`** defines all tables and columns to 
 | Fundraising | `supporters`, `donations`, `donation_allocations`, `in_kind_donation_items` |
 | Programs / safehouses | `safehouses`, `safehouse_monthly_metrics`, `partners`, `partner_assignments` |
 | Case management | `residents`, **`case_conferences`** (added), `intervention_plans`, `education_records`, `health_wellbeing_records`, `home_visitations`, `incident_reports`, `process_recordings` |
-| Comms / impact | `social_media_posts`, `public_impact_snapshots`; **public aggregates** via `api/public/impact` |
+| Comms / impact | `social_media_posts`, `public_impact_snapshots`; **public aggregates** via `public/impact` |
 
 `donation_allocations` links **donations** to **safehouses** and **program_area** (split gifts across sites/programs).
 

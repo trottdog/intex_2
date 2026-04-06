@@ -55,7 +55,7 @@ Register implementations in **`Program.cs`** as **scoped** (same lifetime as `Db
 
 1. On registration (or admin link), set **`supporters.identity_user_id`** = current Identity user id and **`can_login`** = true (columns from **`schema.sql`** `ALTER TABLE supporters` block).
 2. **`DonorService` / `SupporterService`**: `GetLinkedSupporterIdAsync(userId)` returns null or the supporter PK.
-3. **Donation read endpoints for donors**: always filter by that supporter id; **ignore** a client-supplied supporter id if it does not match the linked row (or do not accept supporter id in URL for “me” views—use `GET api/donors/me/donations` pattern if you add it).
+3. **Donation read endpoints for donors**: always filter by that supporter id; **ignore** a client-supplied supporter id if it does not match the linked row (or do not accept supporter id in URL for “me” views—use `GET donors/me/donations` pattern if you add it).
 
 Admin-only flows may create historical rows without a login; when a donor registers later, **link** the existing `supporters` row instead of duplicating.
 
@@ -102,7 +102,7 @@ Use a small **`Result` / `Result<T>`** type **or** return nullable DTOs + throw 
 
 ### `PublicImpactService` (aggregates only)
 
-- Serve **`GET api/public/impact`**, **`…/safehouses`**, **`…/donation-summary`**: query `public_impact_snapshots`, `donations`, `safehouses`, etc., but return **aggregated** DTOs with **no PII** (no resident identifiers, no supporter emails on public routes unless explicitly allowed).
+- Serve **`GET public/impact`**, **`…/safehouses`**, **`…/donation-summary`**: query `public_impact_snapshots`, `donations`, `safehouses`, etc., but return **aggregated** DTOs with **no PII** (no resident identifiers, no supporter emails on public routes unless explicitly allowed).
 
 ### `SafehouseService` / `PartnerService`
 

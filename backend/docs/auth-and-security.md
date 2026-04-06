@@ -2,7 +2,7 @@
 
 ## Authentication flow (React + Azure-hosted .NET + Supabase Postgres)
 
-1. User signs in via **`POST api/auth/login`** (or Identity scaffold endpoints).
+1. User signs in via **`POST auth/login`** (or Identity scaffold endpoints).
 2. **ASP.NET Identity** validates credentials (`UserManager` / `SignInManager` or custom handler issuing **JWT**).
 3. Server returns a **JWT** (stored in memory or `sessionStorage`—understand XSS risk) **or** sets an **httpOnly** secure cookie. **Pick one** approach for the whole project; document it for React (`fetch` / axios interceptors, CORS, credentials).
 4. React includes credentials on each request: `Authorization: Bearer <token>` **or** cookies automatically on same-site requests.
@@ -34,7 +34,7 @@ Donor users must see **their own** historical donations and impact. The root **`
 
 | Resource / operation | Anonymous | Donor | Admin |
 |----------------------|-----------|-------|-------|
-| `GET api/public/impact*`, other curated public reads | ✓ (`AllowAnonymous`) | ✓ | ✓ |
+| `GET public/impact*`, other curated public reads | ✓ (`AllowAnonymous`) | ✓ | ✓ |
 | Login, register (if enabled) | ✓ | ✓ | ✓ |
 | `supporters` read **own** (linked to Identity) | ✗ | ✓ | ✓ |
 | `supporters` admin list / CUD | ✗ | ✗ | ✓ |

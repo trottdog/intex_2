@@ -85,7 +85,7 @@ var dto = await _db.Donations
 
 ## Joins and aggregations
 
-- Express joins and **`GroupBy`** aggregations in **LINQ** inside services; project to small read DTOs for dashboards and **`api/public/impact`** (aggregates only, no PII).
+- Express joins and **`GroupBy`** aggregations in **LINQ** inside services; project to small read DTOs for dashboards and **`public/impact`** (aggregates only, no PII).
 - **Pagination**: `OrderBy` + `Skip` + `Take` on the server before materializing large lists.
 
 ## Transactions
