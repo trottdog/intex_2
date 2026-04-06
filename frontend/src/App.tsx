@@ -8,9 +8,12 @@ import {
 } from './app/session'
 import {
   AppLink,
+  Breadcrumbs,
   DataTable,
   EmptyState,
   ErrorState,
+  FilterToolbar,
+  LoadingState,
   SectionHeader,
   StatCard,
   StatusPill,
@@ -136,6 +139,39 @@ function usePathname() {
 function navigate(to: string) {
   window.history.pushState({}, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
+function getBreadcrumbs(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
+
+  if (segments.length === 0) {
+    return [{ label: 'Home' }]
+  }
+
+  const items: Array<{ label: string; to?: string }> = []
+  let current = ''
+
+  for (const segment of segments) {
+    current += `/${segment}`
+
+    if (/^\d+$/.test(segment)) {
+      items.push({ label: `Record ${segment}` })
+      continue
+    }
+
+    const label = segment
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+    items.push({ label, to: current })
+  }
+
+  if (items.length > 0) {
+    const last = items[items.length - 1]
+    items[items.length - 1] = { label: last.label }
+  }
+
+  return items
 }
 
 function resolveRoute(pathname: string, role: UserRole) {
@@ -384,6 +420,7 @@ function AuthenticatedLayout({
   signOut: () => void
 }) {
   const navGroups = getNavGroups(user.role)
+  const breadcrumbs = getBreadcrumbs(window.location.pathname)
 
   return (
     <div className="app-frame app-shell">
@@ -437,6 +474,9 @@ function AuthenticatedLayout({
             </button>
           </div>
         </header>
+        <div className="app-breadcrumbs">
+          <Breadcrumbs items={breadcrumbs} />
+        </div>
         <main className="page-main app-main">{children}</main>
       </div>
     </div>
@@ -1157,14 +1197,56 @@ function AdminDashboardPage() {
 
 function CaseloadPage() {
   const residents = useApiResource('/residents', mockResidents)
+  const [search, setSearch] = useState('')
+  const [riskFilter, setRiskFilter] = useState('All')
+  const filteredResidents = residents.data.filter((resident) => {
+    const matchesSearch =
+      resident.caseControlNo.toLowerCase().includes(search.toLowerCase()) ||
+      resident.assignedSocialWorker.toLowerCase().includes(search.toLowerCase()) ||
+      resident.caseCategory.toLowerCase().includes(search.toLowerCase())
+    const matchesRisk = riskFilter === 'All' || resident.currentRiskLevel === riskFilter
+    return matchesSearch && matchesRisk
+  })
 
   return (
     <PageSection title="Caseload inventory" description="The core list view for resident care management.">
       <SectionHeader title="Current residents" description="Search, filter, and open the resident workspace." />
-      <Surface title="Caseload" subtitle="This should be highly scannable and calm, even with sensitive data.">
+      <Surface
+        title="Caseload"
+        subtitle="This should be highly scannable and calm, even with sensitive data."
+        actions={
+          <StatusPill tone={residents.source === 'live' ? 'success' : 'warning'}>
+            {residents.source === 'live' ? 'Live data' : 'Fallback data'}
+          </StatusPill>
+        }
+      >
+        <FilterToolbar>
+          <label>
+            Search residents
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Case number, worker, or category" />
+          </label>
+          <label>
+            Risk filter
+            <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}>
+              <option>All</option>
+              <option>High</option>
+              <option>Moderate</option>
+              <option>Low</option>
+            </select>
+          </label>
+        </FilterToolbar>
+        {residents.isLoading ? (
+          <LoadingState title="Loading caseload" description="Fetching resident records from the backend route family." />
+        ) : null}
+        {residents.error ? (
+          <ErrorState title="Using prepared resident fallback" description={residents.error} />
+        ) : null}
+        {filteredResidents.length === 0 ? (
+          <EmptyState title="No matching residents" description="Adjust the search or risk filter to find a different caseload slice." />
+        ) : (
         <DataTable
           columns={['Case no.', 'Status', 'Category', 'Worker', 'Risk', 'Open']}
-          rows={residents.data.map((resident) => [
+          rows={filteredResidents.map((resident) => [
             resident.caseControlNo,
             resident.caseStatus,
             resident.caseCategory,
@@ -1175,6 +1257,7 @@ function CaseloadPage() {
             <AppLink to={`/app/admin/residents/${resident.residentId}`}>Open resident</AppLink>,
           ])}
         />
+        )}
       </Surface>
     </PageSection>
   )
@@ -1291,13 +1374,54 @@ function renderResidentSubpage(residentId: number, title: string, description: s
 
 function DonorsPage() {
   const supporters = useApiResource('/supporters', mockSupporters)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const filteredSupporters = supporters.data.filter((supporter) => {
+    const matchesSearch =
+      supporter.displayName.toLowerCase().includes(search.toLowerCase()) ||
+      supporter.supporterType.toLowerCase().includes(search.toLowerCase()) ||
+      supporter.region.toLowerCase().includes(search.toLowerCase())
+    const matchesStatus = statusFilter === 'All' || supporter.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <PageSection title="Donors and supporters" description="Supporter management should stay clearly separated from donation operations.">
-      <Surface title="Supporter directory" subtitle="The backend already exposes list and detail reads here.">
+      <Surface
+        title="Supporter directory"
+        subtitle="The backend already exposes list and detail reads here."
+        actions={
+          <StatusPill tone={supporters.source === 'live' ? 'success' : 'warning'}>
+            {supporters.source === 'live' ? 'Live data' : 'Fallback data'}
+          </StatusPill>
+        }
+      >
+        <FilterToolbar>
+          <label>
+            Search supporters
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, type, or region" />
+          </label>
+          <label>
+            Status
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option>All</option>
+              <option>Active</option>
+              <option>At risk</option>
+            </select>
+          </label>
+        </FilterToolbar>
+        {supporters.isLoading ? (
+          <LoadingState title="Loading supporters" description="Fetching supporter records from the backend." />
+        ) : null}
+        {supporters.error ? (
+          <ErrorState title="Using prepared supporter fallback" description={supporters.error} />
+        ) : null}
+        {filteredSupporters.length === 0 ? (
+          <EmptyState title="No matching supporters" description="Try another status or broaden the search." />
+        ) : (
         <DataTable
           columns={['Name', 'Type', 'Region', 'Status', 'Channel']}
-          rows={supporters.data.map((supporter) => [
+          rows={filteredSupporters.map((supporter) => [
             supporter.displayName,
             supporter.supporterType,
             supporter.region,
@@ -1305,6 +1429,7 @@ function DonorsPage() {
             supporter.acquisitionChannel,
           ])}
         />
+        )}
       </Surface>
     </PageSection>
   )
@@ -1312,13 +1437,57 @@ function DonorsPage() {
 
 function ContributionsPage() {
   const donations = useApiResource('/donations', mockDonations)
+  const [campaignFilter, setCampaignFilter] = useState('All campaigns')
+  const [search, setSearch] = useState('')
+  const campaignOptions = Array.from(new Set(donations.data.map((donation) => donation.campaignName)))
+  const filteredDonations = donations.data.filter((donation) => {
+    const matchesCampaign =
+      campaignFilter === 'All campaigns' || donation.campaignName === campaignFilter
+    const matchesSearch =
+      donation.campaignName.toLowerCase().includes(search.toLowerCase()) ||
+      donation.channelSource.toLowerCase().includes(search.toLowerCase()) ||
+      donation.donationType.toLowerCase().includes(search.toLowerCase())
+    return matchesCampaign && matchesSearch
+  })
 
   return (
     <PageSection title="Contributions" description="Connect donor, donation, allocation, and impact in one understandable workflow.">
-      <Surface title="Donations" subtitle="This is a high-priority operational view for the final demo.">
+      <Surface
+        title="Donations"
+        subtitle="This is a high-priority operational view for the final demo."
+        actions={
+          <StatusPill tone={donations.source === 'live' ? 'success' : 'warning'}>
+            {donations.source === 'live' ? 'Live data' : 'Fallback data'}
+          </StatusPill>
+        }
+      >
+        <FilterToolbar>
+          <label>
+            Search contributions
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Campaign, source, or type" />
+          </label>
+          <label>
+            Campaign
+            <select value={campaignFilter} onChange={(event) => setCampaignFilter(event.target.value)}>
+              <option>All campaigns</option>
+              {campaignOptions.map((campaign) => (
+                <option key={campaign}>{campaign}</option>
+              ))}
+            </select>
+          </label>
+        </FilterToolbar>
+        {donations.isLoading ? (
+          <LoadingState title="Loading contributions" description="Fetching donation records from the backend." />
+        ) : null}
+        {donations.error ? (
+          <ErrorState title="Using prepared contribution fallback" description={donations.error} />
+        ) : null}
+        {filteredDonations.length === 0 ? (
+          <EmptyState title="No matching contributions" description="Try another campaign or broaden the search." />
+        ) : (
         <DataTable
           columns={['Date', 'Campaign', 'Type', 'Amount', 'Detail']}
-          rows={donations.data.map((donation) => [
+          rows={filteredDonations.map((donation) => [
             donation.donationDate,
             donation.campaignName,
             donation.donationType,
@@ -1326,6 +1495,7 @@ function ContributionsPage() {
             <AppLink to={`/app/admin/contributions/${donation.donationId}`}>Open detail</AppLink>,
           ])}
         />
+        )}
       </Surface>
     </PageSection>
   )
@@ -1392,13 +1562,43 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
 
 function SafehousesPage() {
   const safehouses = useApiResource('/safehouses', mockSafehouses)
+  const [regionFilter, setRegionFilter] = useState('All regions')
+  const regions = Array.from(new Set(safehouses.data.map((safehouse) => safehouse.region)))
+  const filteredSafehouses = safehouses.data.filter((safehouse) =>
+    regionFilter === 'All regions' ? true : safehouse.region === regionFilter,
+  )
 
   return (
     <PageSection title="Safehouses" description="Facility status and metrics should feel operational, not ornamental.">
-      <Surface title="Facilities" subtitle="Open a safehouse to inspect occupancy and monthly metrics.">
+      <Surface
+        title="Facilities"
+        subtitle="Open a safehouse to inspect occupancy and monthly metrics."
+        actions={
+          <StatusPill tone={safehouses.source === 'live' ? 'success' : 'warning'}>
+            {safehouses.source === 'live' ? 'Live data' : 'Fallback data'}
+          </StatusPill>
+        }
+      >
+        <FilterToolbar>
+          <label>
+            Region
+            <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
+              <option>All regions</option>
+              {regions.map((region) => (
+                <option key={region}>{region}</option>
+              ))}
+            </select>
+          </label>
+        </FilterToolbar>
+        {safehouses.isLoading ? (
+          <LoadingState title="Loading safehouses" description="Fetching facility records from the backend." />
+        ) : null}
+        {safehouses.error ? (
+          <ErrorState title="Using prepared safehouse fallback" description={safehouses.error} />
+        ) : null}
         <DataTable
           columns={['Name', 'Region', 'Status', 'Occupancy', 'Detail']}
-          rows={safehouses.data.map((safehouse) => [
+          rows={filteredSafehouses.map((safehouse) => [
             safehouse.name,
             safehouse.region,
             <StatusPill tone="success">{safehouse.status}</StatusPill>,
@@ -1503,14 +1703,44 @@ function ReportsPage() {
 function OutreachPage() {
   const posts = useApiResource('/social-media-posts', mockSocialPosts)
   const snapshots = useApiResource('/public-impact-snapshots', mockImpactSnapshots)
+  const [platformFilter, setPlatformFilter] = useState('All platforms')
+  const filteredPosts = posts.data.filter((post) =>
+    platformFilter === 'All platforms' ? true : post.platform === platformFilter,
+  )
+  const platforms = Array.from(new Set(posts.data.map((post) => post.platform)))
 
   return (
     <PageSection title="Outreach analytics" description="Social performance should connect to action, not vanity.">
       <div className="two-column-grid">
-        <Surface title="Post performance" subtitle="List and review social content that drives engagement and referrals.">
+        <Surface
+          title="Post performance"
+          subtitle="List and review social content that drives engagement and referrals."
+          actions={
+            <StatusPill tone={posts.source === 'live' ? 'success' : 'warning'}>
+              {posts.source === 'live' ? 'Live data' : 'Fallback data'}
+            </StatusPill>
+          }
+        >
+          <FilterToolbar>
+            <label>
+              Platform
+              <select value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}>
+                <option>All platforms</option>
+                {platforms.map((platform) => (
+                  <option key={platform}>{platform}</option>
+                ))}
+              </select>
+            </label>
+          </FilterToolbar>
+          {posts.isLoading ? (
+            <LoadingState title="Loading post performance" description="Fetching social media post records from the backend." />
+          ) : null}
+          {posts.error ? (
+            <ErrorState title="Using prepared outreach fallback" description={posts.error} />
+          ) : null}
           <DataTable
             columns={['Platform', 'Topic', 'Engagement', 'Donation referrals']}
-            rows={posts.data.map((post) => [
+            rows={filteredPosts.map((post) => [
               post.platform,
               post.contentTopic,
               `${Math.round(post.engagementRate * 100)}%`,

@@ -87,6 +87,21 @@ export function EmptyState({
   )
 }
 
+export function LoadingState({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
+  return (
+    <div className="loading-state">
+      <h3>{title}</h3>
+      <p>{description}</p>
+    </div>
+  )
+}
+
 export function ErrorState({
   title,
   description,
@@ -99,6 +114,31 @@ export function ErrorState({
       <h3>{title}</h3>
       <p>{description}</p>
     </div>
+  )
+}
+
+export function FilterToolbar({
+  children,
+}: {
+  children: ReactNode
+}) {
+  return <div className="filter-toolbar">{children}</div>
+}
+
+export function Breadcrumbs({
+  items,
+}: {
+  items: Array<{ label: string; to?: string }>
+}) {
+  return (
+    <nav className="breadcrumbs" aria-label="Breadcrumb">
+      {items.map((item, index) => (
+        <span key={`${item.label}-${index}`} className="breadcrumb-item">
+          {item.to ? <AppLink to={item.to}>{item.label}</AppLink> : <span>{item.label}</span>}
+          {index < items.length - 1 ? <span className="breadcrumb-separator">/</span> : null}
+        </span>
+      ))}
+    </nav>
   )
 }
 
