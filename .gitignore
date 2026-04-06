@@ -20,6 +20,15 @@ pnpm-debug.log*
 node_modules/
 dist/
 build/
+
+# .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
 coverage/
 .next/
 .nuxt/
