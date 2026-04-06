@@ -62,28 +62,7 @@ public class SupportersController : ControllerBase
     public IActionResult Delete(long id) => NoContent();
 }
 
-// -------------------------------------------------------------------------
-// Donations
-// -------------------------------------------------------------------------
-[ApiController]
-[Route("donations")]
-public class DonationsController : ControllerBase
-{
-    [HttpGet]
-    public IActionResult List() => Ok(Array.Empty<object>());
-
-    [HttpGet("{id:long}")]
-    public IActionResult Get(long id) => Ok(new { donationId = id, message = "stub" });
-
-    [HttpPost]
-    public IActionResult Create() => StatusCode(StatusCodes.Status201Created);
-
-    [HttpPut("{id:long}")]
-    public IActionResult Update(long id) => Ok();
-
-    [HttpDelete("{id:long}")]
-    public IActionResult Delete(long id) => NoContent();
-}
+// Donations: see DonationsController (queries donations table).
 
 [ApiController]
 [Route("donations/{donationId:long}/allocations")]
@@ -106,17 +85,7 @@ public class DonationAllocationsController : ControllerBase
     public IActionResult Delete(long donationId, long allocationId) => NoContent();
 }
 
-[ApiController]
-[Route("donations/{donationId:long}/in-kind-items")]
-public class InKindDonationItemsController : ControllerBase
-{
-    [HttpGet]
-    public IActionResult List(long donationId) => Ok(Array.Empty<object>());
-
-    [HttpGet("{itemId:long}")]
-    public IActionResult Get(long donationId, long itemId) =>
-        Ok(new { donationId, itemId, message = "stub" });
-}
+// In-kind items: see InKindDonationItemsController (queries in_kind_donation_items).
 
 // -------------------------------------------------------------------------
 // Residents & nested case-management
