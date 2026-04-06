@@ -3,7 +3,7 @@ PYTHON ?= python
 .PHONY: test train-all
 
 test:
-	$(PYTHON) -m pytest tests
+	$(PYTHON) -m pytest ml/tests
 
 train-all:
-	$(PYTHON) scripts/run_all_pipelines.py
+	$(PYTHON) ml/scripts/run_all_pipelines.py
