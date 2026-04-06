@@ -35,23 +35,24 @@ import {
   mockSafehouses,
   mockSocialPosts,
   mockSupporters,
+  impactDonationSummaryFallback,
+  impactMetricsFallback,
+  type ImpactMetricsPublic,
+  type PublicDonationSummary,
   type ResidentActivity,
 } from './data/mockData'
 import { getApiBaseUrl, useApiResource } from './lib/api'
+import { directorPhotos, siteImages } from './siteImages'
 
-type ImpactMetrics = {
-  donationCount: number
-  totalDonationAmount: number
-  residentCount: number
-  safehouseCount: number
-}
+const impactCurrency = new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+  maximumFractionDigits: 0,
+})
 
-type PublicDonationSummary = {
-  summaries: Array<{
-    donationType: string
-    count: number
-    amount: number
-  }>
+function formatDonationTypeLabel(raw: string): string {
+  const spaced = raw.replace(/([a-z])([A-Z])/g, '$1 $2')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase()
 }
 
 function App() {
@@ -331,8 +332,11 @@ function PublicLayout({
     <div className="app-frame public-frame">
       <header className="public-header">
         <AppLink to="/" className="brand-lockup">
-          <span className="brand-mark">INTEX</span>
-          <span className="brand-text">Integrity-centered nonprofit operations</span>
+          <img src={siteImages.logo} alt="" className="brand-logo-img" width={44} height={44} />
+          <div className="brand-text-block">
+            <span className="brand-mark">INTEX</span>
+            <span className="brand-text">Integrity-centered nonprofit operations</span>
+          </div>
         </AppLink>
         <nav className={`top-nav ${mobileNavOpen ? 'open' : ''}`}>
           {publicLinks.map(([to, label]) => (
@@ -385,8 +389,11 @@ function AuthenticatedLayout({
     <div className="app-frame app-shell">
       <aside className={`app-sidebar ${mobileNavOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <span className="brand-mark">INTEX</span>
-          <span>{user.role === 'super-admin' ? 'Global command' : user.role === 'admin' ? 'Facility workspace' : 'Donor portal'}</span>
+          <img src={siteImages.logo} alt="" className="brand-logo-img brand-logo-img--sm" width={36} height={36} />
+          <div className="brand-text-block">
+            <span className="brand-mark">INTEX</span>
+            <span>{user.role === 'super-admin' ? 'Global command' : user.role === 'admin' ? 'Facility workspace' : 'Donor portal'}</span>
+          </div>
         </div>
         {navGroups.map((group) => (
           <div key={group.title} className="sidebar-group">
@@ -514,64 +521,86 @@ function HomePage() {
           </div>
         </div>
         <div className="hero-visual">
-          <div className="hero-panel">
-            <span className="eyebrow">What this platform does well</span>
-            <ul>
-              <li>Turns public trust into support</li>
-              <li>Organizes resident care around clear workflows</li>
-              <li>Connects donor, donation, allocation, and impact</li>
-              <li>Surfaces ML insight inside real staff decisions</li>
-            </ul>
+          <div className="hero-photo-card">
+            <img
+              className="hero-photo"
+              src={siteImages.homeHero}
+              alt="People joining hands together in a circle"
+            />
+            <div className="hero-panel">
+              <span className="eyebrow">What this platform does well</span>
+              <ul>
+                <li>Turns public trust into support</li>
+                <li>Organizes resident care around clear workflows</li>
+                <li>Connects donor, donation, allocation, and impact</li>
+                <li>Surfaces ML insight inside real staff decisions</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="feature-band">
-        <div>
+      <section className="feature-band feature-band-visual">
+        <div className="feature-tile">
+          <div className="feature-tile-visual">
+            <img src={siteImages.featureStory} alt="" />
+          </div>
           <span className="eyebrow">Public story</span>
           <h2>Tell a credible mission story in minutes, not buried pages.</h2>
           <p>Strong first impression, direct calls to action, and a public impact surface backed by live nonprofit metrics.</p>
         </div>
-        <div>
+        <div className="feature-tile">
+          <div className="feature-tile-visual">
+            <img src={siteImages.featureOps} alt="" />
+          </div>
           <span className="eyebrow">Operations core</span>
           <h2>Give staff one place to manage care, contributions, and reporting.</h2>
           <p>Caseload, donor flows, safehouse visibility, and reporting are structured around task clarity instead of clutter.</p>
         </div>
-        <div>
+        <div className="feature-tile">
+          <div className="feature-tile-visual">
+            <img src={siteImages.featureMl} alt="" />
+          </div>
           <span className="eyebrow">Decision support</span>
           <h2>Use ML where it helps, with explanations and next steps.</h2>
           <p>Risk, readiness, and retention signals stay grounded in human judgment and visible workflow context.</p>
         </div>
+      </section>
+
+      <section className="home-photo-strip" aria-label="Community moments">
+        {siteImages.gallery.map((src) => (
+          <div key={src} className="home-photo-strip-item">
+            <img src={src} alt="" />
+          </div>
+        ))}
       </section>
     </div>
   )
 }
 
 function ImpactPage() {
-  const metrics = useApiResource<ImpactMetrics>('/public/impact', {
-    donationCount: 146,
-    totalDonationAmount: 28750,
-    residentCount: 47,
-    safehouseCount: 2,
-  })
+  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', impactMetricsFallback)
   const safehouses = useApiResource('/public/impact/safehouses', mockSafehouses)
-  const donationSummary = useApiResource<PublicDonationSummary>('/public/impact/donation-summary', {
-    summaries: [
-      { donationType: 'Monetary', count: 28, amount: 24250 },
-      { donationType: 'In kind', count: 9, amount: 4500 },
-    ],
-  })
+  const donationSummary = useApiResource<PublicDonationSummary>(
+    '/public/impact/donation-summary',
+    impactDonationSummaryFallback,
+  )
 
   return (
     <div className="public-page">
-      <section className="page-hero compact">
-        <span className="eyebrow">Public impact dashboard</span>
-        <h1>Show outcomes, not noise.</h1>
-        <p>
-          This dashboard is designed to communicate what the organization does, why donations matter, and how support
-          turns into resident care and safehouse stability.
-        </p>
-      </section>
+      <div className="impact-hero-row">
+        <div className="impact-hero-photo">
+          <img src={siteImages.impactBanner} alt="" />
+        </div>
+        <section className="page-hero compact">
+          <span className="eyebrow">Public impact dashboard</span>
+          <h1>Show outcomes, not noise.</h1>
+          <p>
+            This dashboard is designed to communicate what the organization does, why donations matter, and how support
+            turns into resident care and safehouse stability.
+          </p>
+        </section>
+      </div>
 
       <div className="source-note">
         <strong>Data source:</strong> {metrics.source === 'live' ? `Live backend data from ${getApiBaseUrl()}` : 'Frontend fallback preview while backend is unavailable'}
@@ -583,7 +612,11 @@ function ImpactPage() {
 
       <section className="stat-grid">
         <StatCard label="Donation count" value={String(metrics.data.donationCount)} hint="Public-facing aggregate only" />
-        <StatCard label="Total donation amount" value={`$${metrics.data.totalDonationAmount.toLocaleString()}`} hint="All figures are summarized and anonymized" />
+        <StatCard
+          label="Total monetary donations"
+          value={impactCurrency.format(metrics.data.totalDonationAmount)}
+          hint="Sum of recorded cash amounts (PHP); other gift types summarized below"
+        />
         <StatCard label="Residents served" value={String(metrics.data.residentCount)} hint="Current total across the platform" />
         <StatCard label="Safehouses represented" value={String(metrics.data.safehouseCount)} hint="Active facilities in the impact view" />
       </section>
@@ -591,11 +624,11 @@ function ImpactPage() {
       <div className="two-column-grid">
         <Surface title="Donation summary" subtitle="What supporters are contributing right now.">
           <DataTable
-            columns={['Donation type', 'Count', 'Amount']}
+            columns={['Donation type', 'Count', 'Amount (PHP)']}
             rows={donationSummary.data.summaries.map((item) => [
-              item.donationType,
+              formatDonationTypeLabel(item.donationType),
               item.count.toString(),
-              `$${item.amount.toLocaleString()}`,
+              impactCurrency.format(item.amount),
             ])}
           />
         </Surface>
@@ -625,60 +658,81 @@ function ImpactPage() {
 }
 
 function ProgramsPage() {
+  const pillars: Array<{ title: string; body: string; img: string }> = [
+    {
+      title: 'Caring',
+      body: 'Stabilization, basic needs, and safehouse support for immediate safety and recovery.',
+      img: siteImages.programCaring,
+    },
+    {
+      title: 'Healing',
+      body: 'Counseling, case conferences, and structured follow-up for long-term recovery.',
+      img: siteImages.programHealing,
+    },
+    {
+      title: 'Teaching',
+      body: 'Education, readiness, and life-skills support that connects progress to reintegration.',
+      img: siteImages.programTeaching,
+    },
+  ]
+
   return (
-    <SimplePublicPage
-      eyebrow="Programs"
-      title="Organize care around caring, healing, and teaching."
-      description="Programs should make it obvious how safehouse care, counseling, education, and reintegration support fit together."
-      cards={[
-        ['Caring', 'Stabilization, basic needs, and safehouse support for immediate safety and recovery.'],
-        ['Healing', 'Counseling, case conferences, and structured follow-up for long-term recovery.'],
-        ['Teaching', 'Education, readiness, and life-skills support that connects progress to reintegration.'],
-      ]}
-    />
+    <div className="public-page">
+      <section className="page-hero compact">
+        <span className="eyebrow">Programs</span>
+        <h1>Organize care around caring, healing, and teaching.</h1>
+        <p>Programs should make it obvious how safehouse care, counseling, education, and reintegration support fit together.</p>
+      </section>
+      <section className="programs-pillars">
+        {pillars.map((pillar) => (
+          <article key={pillar.title} className="program-pillar-card">
+            <div className="program-pillar-visual">
+              <img src={pillar.img} alt="" />
+            </div>
+            <h2>{pillar.title}</h2>
+            <p>{pillar.body}</p>
+          </article>
+        ))}
+      </section>
+    </div>
   )
 }
 
 function AboutPage() {
   return (
-    <SimplePublicPage
-      eyebrow="About"
-      title="Build a system that feels worthy of the mission."
-      description="The product experience should communicate credibility, restraint, and professional stewardship of sensitive data."
-      cards={[
-        ['Trust', 'Privacy, access control, and careful handling of sensitive resident workflows.'],
-        ['Transparency', 'Public impact storytelling tied to real organizational outcomes.'],
-        ['Decision support', 'Operational dashboards and ML insights that clarify rather than distract.'],
-      ]}
-    />
-  )
-}
-
-function SimplePublicPage({
-  eyebrow,
-  title,
-  description,
-  cards,
-}: {
-  eyebrow: string
-  title: string
-  description: string
-  cards: Array<[string, string]>
-}) {
-  return (
     <div className="public-page">
       <section className="page-hero compact">
-        <span className="eyebrow">{eyebrow}</span>
-        <h1>{title}</h1>
-        <p>{description}</p>
+        <span className="eyebrow">About</span>
+        <h1>Build a system that feels worthy of the mission.</h1>
+        <p>The product experience should communicate credibility, restraint, and professional stewardship of sensitive data.</p>
       </section>
       <section className="feature-band">
-        {cards.map(([heading, body]) => (
-          <div key={heading}>
-            <h2>{heading}</h2>
-            <p>{body}</p>
-          </div>
-        ))}
+        <div>
+          <h2>Trust</h2>
+          <p>Privacy, access control, and careful handling of sensitive resident workflows.</p>
+        </div>
+        <div>
+          <h2>Transparency</h2>
+          <p>Public impact storytelling tied to real organizational outcomes.</p>
+        </div>
+        <div>
+          <h2>Decision support</h2>
+          <p>Operational dashboards and ML insights that clarify rather than distract.</p>
+        </div>
+      </section>
+      <section className="directors-section">
+        <h2 className="directors-heading">Leadership</h2>
+        <p className="directors-lede">People guiding Lighthouse and the INTEX platform partnership.</p>
+        <div className="director-grid">
+          {directorPhotos.map((person) => (
+            <article key={person.src} className="director-card">
+              <div className="director-photo-wrap">
+                <img src={person.src} alt={person.name} loading="lazy" />
+              </div>
+              <h3>{person.name}</h3>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   )
@@ -691,58 +745,65 @@ function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
   const [purpose, setPurpose] = useState('Emergency care and stabilization')
 
   return (
-    <div className="public-page">
-      <section className="page-hero compact">
-        <span className="eyebrow">{donorMode ? 'Authenticated giving' : 'Donate'}</span>
-        <h1>{donorMode ? 'Continue giving with your saved donor profile.' : 'Support care, healing, and safehouse stability.'}</h1>
-        <p>
-          {donorMode
-            ? 'This flow keeps the giving experience simple while preserving a clear donor-to-impact story.'
-            : 'The public donation flow should feel trustworthy, low-friction, and clearly tied to meaningful outcomes.'}
-        </p>
-      </section>
-
-      <Surface
-        title="Donation entry"
-        subtitle="This frontend is ready for a backend-backed donation workflow. Until mutation endpoints are fully wired, the form demonstrates the intended UX."
-      >
-        {submitted ? (
-          <div className="success-panel">
-            <h3>Donation submitted</h3>
+    <div className="public-page donate-page">
+      <div className="donate-layout">
+        <div className="donate-layout-main">
+          <section className="page-hero compact">
+            <span className="eyebrow">{donorMode ? 'Authenticated giving' : 'Donate'}</span>
+            <h1>{donorMode ? 'Continue giving with your saved donor profile.' : 'Support care, healing, and safehouse stability.'}</h1>
             <p>
-              {name || 'Supporter'} pledged <strong>${amount}</strong> toward <strong>{purpose}</strong>. The intended post-submit handoff is a receipt, a profile link, and a clear next step into the donor portal.
+              {donorMode
+                ? 'This flow keeps the giving experience simple while preserving a clear donor-to-impact story.'
+                : 'The public donation flow should feel trustworthy, low-friction, and clearly tied to meaningful outcomes.'}
             </p>
-          </div>
-        ) : (
-          <form
-            className="form-grid"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setSubmitted(true)
-            }}
+          </section>
+
+          <Surface
+            title="Donation entry"
+            subtitle="This frontend is ready for a backend-backed donation workflow. Until mutation endpoints are fully wired, the form demonstrates the intended UX."
           >
-            <label>
-              Donor name
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Maya Thompson" />
-            </label>
-            <label>
-              Donation amount
-              <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
-            </label>
-            <label className="full-span">
-              Program focus
-              <select value={purpose} onChange={(event) => setPurpose(event.target.value)}>
-                <option>Emergency care and stabilization</option>
-                <option>Safehouse readiness</option>
-                <option>Education and reintegration</option>
-              </select>
-            </label>
-            <button className="primary-button full-span" type="submit">
-              Submit donation
-            </button>
-          </form>
-        )}
-      </Surface>
+            {submitted ? (
+              <div className="success-panel">
+                <h3>Donation submitted</h3>
+                <p>
+                  {name || 'Supporter'} pledged <strong>${amount}</strong> toward <strong>{purpose}</strong>. The intended post-submit handoff is a receipt, a profile link, and a clear next step into the donor portal.
+                </p>
+              </div>
+            ) : (
+              <form
+                className="form-grid"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  setSubmitted(true)
+                }}
+              >
+                <label>
+                  Donor name
+                  <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Maya Thompson" />
+                </label>
+                <label>
+                  Donation amount
+                  <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+                </label>
+                <label className="full-span">
+                  Program focus
+                  <select value={purpose} onChange={(event) => setPurpose(event.target.value)}>
+                    <option>Emergency care and stabilization</option>
+                    <option>Safehouse readiness</option>
+                    <option>Education and reintegration</option>
+                  </select>
+                </label>
+                <button className="primary-button full-span" type="submit">
+                  Submit donation
+                </button>
+              </form>
+            )}
+          </Surface>
+        </div>
+        <div className="donate-visual" aria-hidden="true">
+          <img src={siteImages.donate} alt="" />
+        </div>
+      </div>
     </div>
   )
 }

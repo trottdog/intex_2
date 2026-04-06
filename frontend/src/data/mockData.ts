@@ -420,6 +420,37 @@ export const mockPartnerAssignments: PartnerAssignment[] = [
   },
 ]
 
+/** Matches GET /public/impact and related DTOs from the .NET API. */
+export type ImpactMetricsPublic = {
+  donationCount: number
+  totalDonationAmount: number
+  residentCount: number
+  safehouseCount: number
+}
+
+export type PublicDonationSummary = {
+  summaries: Array<{
+    donationType: string
+    count: number
+    amount: number
+  }>
+}
+
+/** Stable fallbacks when the API is unreachable (offline preview only). */
+export const impactMetricsFallback: ImpactMetricsPublic = {
+  donationCount: 146,
+  totalDonationAmount: 28750,
+  residentCount: 47,
+  safehouseCount: 2,
+}
+
+export const impactDonationSummaryFallback: PublicDonationSummary = {
+  summaries: [
+    { donationType: 'Monetary', count: 28, amount: 24250 },
+    { donationType: 'In kind', count: 9, amount: 4500 },
+  ],
+}
+
 export const mockSocialPosts: SocialMediaPost[] = [
   {
     postId: 1,

@@ -1,6 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const DEFAULT_API_BASE = 'http://localhost:4000'
+
+/** In dev, when VITE_API_BASE_URL is unset, use the Vite proxy (see vite.config.ts). */
+function resolveApiBaseUrl(): string {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim()
+
+  if (configured && configured.length > 0) {
+    return configured.replace(/\/$/, '')
+  }
+
+  if (import.meta.env.DEV) {
+    return '/api'
+  }
+
+  return DEFAULT_API_BASE
+}
 
 type ResourceState<T> = {
   data: T
@@ -10,13 +25,7 @@ type ResourceState<T> = {
 }
 
 export function getApiBaseUrl() {
-  const configured = import.meta.env.VITE_API_BASE_URL
-
-  if (configured && configured.trim().length > 0) {
-    return configured.replace(/\/$/, '')
-  }
-
-  return DEFAULT_API_BASE
+  return resolveApiBaseUrl()
 }
 
 export async function fetchJson<T>(path: string): Promise<T> {
@@ -34,6 +43,11 @@ export async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export function useApiResource<T>(path: string, fallback: T) {
+  // Inline object/array fallbacks get a new reference every render; including them
+  // in the effect deps caused a fetch → setState → re-render → repeat storm.
+  const fallbackRef = useRef(fallback)
+  fallbackRef.current = fallback
+
   const [state, setState] = useState<ResourceState<T>>({
     data: fallback,
     isLoading: true,
@@ -45,8 +59,9 @@ export function useApiResource<T>(path: string, fallback: T) {
     let active = true
 
     async function run() {
+      const fb = fallbackRef.current
       setState({
-        data: fallback,
+        data: fb,
         isLoading: true,
         error: null,
         source: 'fallback',
@@ -70,7 +85,7 @@ export function useApiResource<T>(path: string, fallback: T) {
         }
 
         setState({
-          data: fallback,
+          data: fallbackRef.current,
           isLoading: false,
           error:
             error instanceof Error
@@ -86,7 +101,7 @@ export function useApiResource<T>(path: string, fallback: T) {
     return () => {
       active = false
     }
-  }, [fallback, path])
+  }, [path])
 
   return state
 }
