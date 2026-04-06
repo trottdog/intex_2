@@ -99,4 +99,50 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+await EnsureIntexExtensionTablesAsync(app);
+
 app.Run();
+
+static async Task EnsureIntexExtensionTablesAsync(WebApplication app)
+{
+    var cs = app.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(cs)) return;
+    try
+    {
+        var npg = new NpgsqlConnectionStringBuilder(cs);
+        // Transaction pooler (PgBouncer, e.g. Supabase 6543): DDL is unreliable or disallowed — use SQL Editor or port 5432.
+        if (npg.Port == 6543)
+        {
+            app.Logger.LogInformation(
+                "Skipping case_conferences DDL on pooler port {Port}; create the table from schema.sql (Supabase SQL Editor) or use a direct DB connection.",
+                npg.Port);
+            return;
+        }
+
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS case_conferences (
+                conference_id         BIGSERIAL PRIMARY KEY,
+                resident_id           BIGINT NOT NULL REFERENCES residents (resident_id) ON DELETE CASCADE,
+                conference_date       DATE NOT NULL,
+                conference_type       TEXT,
+                summary               TEXT,
+                decisions_made        TEXT,
+                next_steps            TEXT,
+                next_conference_date  DATE,
+                created_by            TEXT
+            );
+            """);
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX IF NOT EXISTS idx_case_conferences_resident ON case_conferences (resident_id);
+            """);
+        app.Logger.LogInformation("Verified case_conferences table exists (CREATE IF NOT EXISTS).");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "EnsureIntexExtensionTablesAsync failed (e.g. missing DB or residents table).");
+    }
+}
