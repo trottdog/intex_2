@@ -51,4 +51,12 @@ public class Supporter
 
     [Column("acquisition_channel")]
     public string? AcquisitionChannel { get; set; }
+
+    /// <summary>ASP.NET Identity user id when this supporter can log in as a donor.</summary>
+    [Column("identity_user_id")]
+    [MaxLength(450)]
+    public string? IdentityUserId { get; set; }
+
+    [Column("can_login")]
+    public bool CanLogin { get; set; }
 }

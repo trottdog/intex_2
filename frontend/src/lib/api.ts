@@ -30,6 +30,7 @@ export function getApiBaseUrl() {
 
 export async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    credentials: 'include',
     headers: {
       Accept: 'application/json',
     },

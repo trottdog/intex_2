@@ -417,13 +417,17 @@ Preferred approach:
 - Never hardcode production URLs throughout components
 - Use environment variables for base URLs and environment configuration
 - Align route usage with the backend’s current route families
+- **Public impact snapshots:** `GET /public-impact-snapshots` returns the EF entity (e.g. `summaryText`, `isPublished`) — not the mock-only fields `residentsServed` / `reintegrationRate`. Normalize in one place (`lib/impactSnapshots.ts`) so tables do not assume a single JSON shape
 
 ### Authentication integration
 - Frontend must support secure login/logout flow
-- Frontend must respect session/auth state
+- Frontend must respect session/auth state (including a loading state while `/auth/me` is checked)
 - Protected routes must block unauthorized users
 - UI role checks are for UX only, not true security
 - Real authorization must be enforced by the backend
+- The backend uses ASP.NET Core Identity with an HTTP-only cookie (`Intex.Auth`). The frontend must call `/auth/login`, `/auth/me`, and `/auth/logout` using `fetch` with `credentials: 'include'` so the cookie is sent on same-site or configured cross-origin requests
+- In local development, the Vite dev server should proxy `/api` to the API origin so auth requests share the correct host/port behavior; do not embed API passwords or User Secrets in the frontend bundle
+- API role names `SuperAdmin`, `Admin`, and `Donor` map to the UI’s `super-admin`, `admin`, and `donor` experiences; `/auth/me` may return `supporterId` (donor linkage) and `safehouseIds` (staff scope) for display and routing context
 
 ### Error handling
 Every API interaction must account for:
@@ -579,6 +583,20 @@ Recommended structure:
 - API client separated from UI
 - page files should compose features, not hold all logic inline
 - nested backend route families may be represented by separate API modules where needed
+
+### Current repository layout (frontend)
+
+The Vite app lives under `frontend/src/`. As of this revision, it aligns with the intent above as follows:
+
+| Area | Location |
+|------|----------|
+| Session / role mapping (`/auth/me` → UI roles) | `app/session.tsx` |
+| Auth API (`fetch` + `credentials: 'include'`) | `lib/authApi.ts` |
+| Shared API fetch (`fetchJson`, `useApiResource`, `credentials: 'include'`) | `lib/api.ts` |
+| Impact snapshot API vs mock row shape (reports / outreach) | `lib/impactSnapshots.ts`, `types/publicImpactSnapshot.ts` |
+| Reusable UI (tables, layout primitives) | `components/` |
+| Mock CSV-backed data for demos | `data/mockData.ts` |
+| Client routing and pages | `App.tsx` (route table and page components; further split into `pages/` is optional tech debt) |
 
 ---
 

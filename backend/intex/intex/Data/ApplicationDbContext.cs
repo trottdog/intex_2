@@ -1,17 +1,20 @@
 using intex.Data.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace intex.Data;
 
 /// <summary>
-/// EF Core context for Supabase Postgres (same <c>AddDbContext</c> + <c>GetConnectionString</c> pattern as the BookList sample app).
+/// EF Core context: INTEX domain tables plus ASP.NET Identity (same Postgres database).
 /// </summary>
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
     }
+
+    public DbSet<StaffSafehouseAssignment> StaffSafehouseAssignments => Set<StaffSafehouseAssignment>();
 
     public DbSet<Donation> Donations => Set<Donation>();
 
@@ -51,7 +54,18 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<PublicImpactSnapshot>(e =>
             e.Property(x => x.MetricPayloadJson).HasColumnType("jsonb"));
+
+        modelBuilder.Entity<StaffSafehouseAssignment>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.SafehouseId }).IsUnique();
+            e.HasOne(x => x.Safehouse)
+                .WithMany()
+                .HasForeignKey(x => x.SafehouseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

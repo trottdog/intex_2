@@ -1,3 +1,5 @@
+import type { PublicImpactSnapshotMock } from '../types/publicImpactSnapshot'
+
 export type Supporter = {
   supporterId: number
   displayName: string
@@ -102,16 +104,12 @@ export type SocialMediaPost = {
   contentTopic: string
   createdAt: string
   engagementRate: number
-  donationReferrals: number
+  /** API may omit or null this field. */
+  donationReferrals?: number | null
 }
 
-export type PublicImpactSnapshot = {
-  snapshotId: number
-  snapshotDate: string
-  headline: string
-  residentsServed: number
-  reintegrationRate: number
-}
+/** Prepared mock impact rows (aligned with `PublicImpactSnapshotMock`). */
+export type PublicImpactSnapshot = PublicImpactSnapshotMock
 
 export const mockSupporters: Supporter[] = [
   {

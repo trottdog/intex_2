@@ -58,6 +58,16 @@ This document is the **single source of truth** for all features that will exist
 - Session handling (login/logout)
 - Protected routes
 
+### Development identity seed (backend)
+- Development startup seeds Identity roles: `Donor`, `Admin`, `SuperAdmin`.
+- Super admin account defaults to `julie.hernando` (email configurable via `Auth:Seed:SuperAdminEmail`).
+- Staff demo accounts are generated as `sh01_staff1` ... `sh09_staff2` and each is linked to one safehouse assignment.
+- Donor demo users are generated for a subset of existing `supporters` rows (default 20), with `supporters.identity_user_id` and `supporters.can_login = true`.
+- Passwords are never stored in source; provide them via user secrets/environment vars:
+  - `Auth:Seed:SuperAdminPassword`
+  - `Auth:Seed:StaffPassword`
+  - `Auth:Seed:DonorPassword`
+
 ---
 
 # 🧑‍💼 3. ADMIN DASHBOARD (COMMAND CENTER)

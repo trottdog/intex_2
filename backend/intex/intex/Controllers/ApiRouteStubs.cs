@@ -70,21 +70,6 @@ public class PublicImpactController : ControllerBase
 }
 
 // -------------------------------------------------------------------------
-// Auth (anonymous for login/register)
-// -------------------------------------------------------------------------
-[ApiController]
-[Route("auth")]
-[AllowAnonymous]
-public class AuthController : ControllerBase
-{
-    [HttpPost("login")]
-    public IActionResult Login() => Ok(new { message = "stub — login" });
-
-    [HttpPost("register")]
-    public IActionResult Register() => Ok(new { message = "stub — register" });
-}
-
-// -------------------------------------------------------------------------
 // Supporters
 // -------------------------------------------------------------------------
 [ApiController]

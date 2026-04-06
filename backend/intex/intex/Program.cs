@@ -1,5 +1,6 @@
 using DotNetEnv;
 using intex.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -64,16 +65,99 @@ static string PoolerSafeNpgsqlConnectionString(string? raw)
         // Drop client-side pooled connections before PgBouncer / network idle limits cause odd reuse.
         ConnectionLifetime = 300,
     };
+    // PgBouncer transaction mode + Npgsql's client pool can leave connectors in a bad state; avoid reuse.
+    try
+    {
+        if (csb.Port == 6543)
+        {
+            csb.Pooling = false;
+        }
+    }
+    catch
+    {
+        /* ignore parse edge cases */
+    }
+
     return csb.ConnectionString;
 }
 
+/// <summary>Supabase transaction pooler (PgBouncer, 6543) is not suitable for EF migrations / DDL.</summary>
+static bool IsTransactionPoolerConnection(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw)) return false;
+    try
+    {
+        return new NpgsqlConnectionStringBuilder(raw).Port == 6543;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 var npgsqlCs = PoolerSafeNpgsqlConnectionString(builder.Configuration.GetConnectionString("DefaultConnection"));
+var useTxnPooler = IsTransactionPoolerConnection(npgsqlCs);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(npgsqlCs, npgsql =>
-        npgsql.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(15),
-            errorCodesToAdd: null)));
+    {
+        // PgBouncer transaction mode + multiplexed commands: large batches and retry policies can
+        // surface Npgsql ObjectDisposedException on the connector; keep saves single-statement.
+        if (useTxnPooler)
+        {
+            npgsql.MaxBatchSize(1);
+        }
+        else
+        {
+            npgsql.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(15),
+                errorCodesToAdd: null);
+        }
+    }));
+
+builder.Services
+    .AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        options.Password.RequireDigit = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        // Demo passwords in SETUP.md (e.g. Lighthouse1) are alphanumeric only.
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequiredLength = 8;
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddAuthorization();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "Intex.Auth";
+    options.Cookie.HttpOnly = true;
+    // Local SPA → local API: Lax is fine. Local SPA → HTTPS API (cross-site): need None + Secure
+    // so fetch(..., credentials: 'include') receives Set-Cookie. Enable with Auth:Cookie:CrossSite (e.g. Azure).
+    var crossSite = builder.Configuration.GetValue("Auth:Cookie:CrossSite", false);
+    if (crossSite)
+    {
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+    else
+    {
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    }
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
 
 builder.Services.AddCors();
 
@@ -89,17 +173,71 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// BookList: app.UseCors(x => x.WithOrigins("http://localhost:3000"));
-// Vite (this repo) defaults to 5173; include both for local full-stack dev.
-app.UseCors(x => x.WithOrigins("http://localhost:5173", "http://localhost:3000", "https://beacon.trottdog.com"));
+// Vite defaults to 5173; credentials required for Identity auth cookie from the SPA.
+app.UseCors(x => x
+    .WithOrigins(
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:3000",
+        "https://beacon.trottdog.com")
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials());
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 await EnsureIntexExtensionTablesAsync(app);
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var applyMigrations = app.Configuration.GetValue("Database:ApplyMigrations", app.Environment.IsDevelopment());
+    var cs = app.Configuration.GetConnectionString("DefaultConnection");
+    if (applyMigrations)
+    {
+        if (IsTransactionPoolerConnection(cs))
+        {
+            app.Logger.LogWarning(
+                "Skipping EF Core migrations: connection uses transaction pooler port 6543 (DDL is unreliable). " +
+                "Apply Identity schema with a direct Postgres URL (port 5432), e.g. " +
+                "`dotnet ef database update` from backend/intex/intex, or run the SQL scripts in backend/docs. See identity-and-seed.md.");
+        }
+        else
+        {
+            await db.Database.MigrateAsync();
+        }
+    }
+}
+
+if (app.Configuration.GetValue("Auth:Seed:Enabled", app.Environment.IsDevelopment()))
+{
+    if (IsTransactionPoolerConnection(app.Configuration.GetConnectionString("DefaultConnection")))
+    {
+        app.Logger.LogWarning(
+            "Identity startup seed is skipped: DefaultConnection uses the Supabase transaction pooler (port 6543), " +
+            "which does not support the EF Core write patterns used by ASP.NET Identity seeding. " +
+            "For demo logins: (1) point ConnectionStrings:DefaultConnection at direct Postgres (db.*.supabase.co port 5432; user postgres) and restart, " +
+            "or (2) run backend/docs/identity-seed.sql in the Supabase SQL Editor after users exist. See backend/docs/identity-and-seed.md and SEED-DATA.md.");
+    }
+    else
+    {
+        await IdentityDevSeeder.SeedAsync(app);
+    }
+}
+
+if (app.Environment.IsDevelopment())
+{
+    await IdentityPasswordBootstrapper.RunAsync(app);
+}
 
 app.Run();
 

@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { matchPath } from './app/router'
 import {
+  mapMeToSessionUser,
   SessionProvider,
   type SessionUser,
   useSession,
@@ -43,8 +44,19 @@ import {
   type ImpactMetricsPublic,
   type PublicDonationSummary,
   type ResidentActivity,
+  type Resident,
+  type Safehouse,
+  type Supporter,
 } from './data/mockData'
 import { getApiBaseUrl, useApiResource } from './lib/api'
+import {
+  IMPACT_SNAPSHOT_COLUMNS_API,
+  IMPACT_SNAPSHOT_COLUMNS_MOCK,
+  impactSnapshotOutreachRow,
+  impactSnapshotTableRow,
+  impactSnapshotsUseMockColumns,
+} from './lib/impactSnapshots'
+import { fetchMe, loginRequest } from './lib/authApi'
 import { directorPhotos, siteImages } from './siteImages'
 
 const impactCurrency = new Intl.NumberFormat('en-PH', {
@@ -52,6 +64,65 @@ const impactCurrency = new Intl.NumberFormat('en-PH', {
   currency: 'PHP',
   maximumFractionDigits: 0,
 })
+
+/** Donor dashboard: pick mock supporter row by session `supporterId` from `/auth/me`. */
+function resolveMockSupporter(supporterId: number | undefined): { supporter: Supporter; usingFallback: boolean } {
+  if (supporterId != null) {
+    const found = mockSupporters.find((s) => s.supporterId === supporterId)
+    if (found) {
+      return { supporter: found, usingFallback: false }
+    }
+  }
+  return { supporter: mockSupporters[0], usingFallback: true }
+}
+
+function filterResidentsForSessionUser(user: SessionUser, residents: Resident[]): Resident[] {
+  if (user.role === 'super-admin') {
+    return residents
+  }
+  if (user.role === 'admin' && user.safehouseIds?.length) {
+    const allowed = new Set(user.safehouseIds)
+    return residents.filter((r) => allowed.has(r.safehouseId))
+  }
+  return residents
+}
+
+function filterSafehousesForSessionUser(user: SessionUser, safehouses: Safehouse[]): Safehouse[] {
+  if (user.role === 'super-admin') {
+    return safehouses
+  }
+  if (user.role === 'admin' && user.safehouseIds?.length) {
+    const allowed = new Set(user.safehouseIds)
+    return safehouses.filter((s) => allowed.has(s.safehouseId))
+  }
+  return safehouses
+}
+
+function canSessionUserAccessResident(user: SessionUser, resident: Resident): boolean {
+  if (user.role === 'super-admin') {
+    return true
+  }
+  if (user.role === 'admin') {
+    if (!user.safehouseIds?.length) {
+      return true
+    }
+    return user.safehouseIds.includes(resident.safehouseId)
+  }
+  return false
+}
+
+function canSessionUserAccessSafehouse(user: SessionUser, safehouseId: number): boolean {
+  if (user.role === 'super-admin') {
+    return true
+  }
+  if (user.role === 'admin') {
+    if (!user.safehouseIds?.length) {
+      return true
+    }
+    return user.safehouseIds.includes(safehouseId)
+  }
+  return false
+}
 
 function formatDonationTypeLabel(raw: string): string {
   const spaced = raw.replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -68,7 +139,7 @@ function App() {
 
 function IntexApp() {
   const pathname = usePathname()
-  const { user, signOut } = useSession()
+  const { user, sessionStatus, signOut } = useSession()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
@@ -78,8 +149,25 @@ function IntexApp() {
   const shell = resolveRoute(pathname, user?.role ?? 'public')
 
   const protectedArea = pathname.startsWith('/app')
-  if (protectedArea && !user) {
-    return <PublicLayout mobileNavOpen={mobileNavOpen} setMobileNavOpen={setMobileNavOpen}><LoginPage redirectNotice /></PublicLayout>
+  if (protectedArea) {
+    if (sessionStatus === 'loading') {
+      return (
+        <PublicLayout mobileNavOpen={mobileNavOpen} setMobileNavOpen={setMobileNavOpen}>
+          <div className="public-page">
+            <section className="page-hero compact">
+              <p>Checking your session…</p>
+            </section>
+          </div>
+        </PublicLayout>
+      )
+    }
+    if (sessionStatus === 'anonymous' || !user) {
+      return (
+        <PublicLayout mobileNavOpen={mobileNavOpen} setMobileNavOpen={setMobileNavOpen}>
+          <LoginPage redirectNotice />
+        </PublicLayout>
+      )
+    }
   }
 
   if (shell.requiresRole && user && !shell.requiresRole.includes(user.role)) {
@@ -309,10 +397,30 @@ function resolveRoute(pathname: string, role: UserRole) {
     { path: '/login', kind: 'public', render: () => <LoginPage /> },
     { path: '/privacy', kind: 'public', render: () => <PrivacyPage /> },
     { path: '/cookies', kind: 'public', render: () => <CookiePage /> },
-    { path: '/app', kind: 'app', requiresRole: ['donor', 'admin', 'super-admin'], render: () => <RoleRedirectPage role={role} /> },
-    { path: '/app/account', kind: 'app', requiresRole: ['donor', 'admin', 'super-admin'], render: () => <AccountPage /> },
-    { path: '/app/account/security', kind: 'app', requiresRole: ['donor', 'admin', 'super-admin'], render: () => <SecurityPage /> },
-    { path: '/app/forbidden', kind: 'app', requiresRole: ['donor', 'admin', 'super-admin'], render: () => <ForbiddenPage /> },
+    {
+      path: '/app',
+      kind: 'app',
+      requiresRole: ['donor', 'admin', 'super-admin', 'public'],
+      render: () => <RoleRedirectPage role={role} />,
+    },
+    {
+      path: '/app/account',
+      kind: 'app',
+      requiresRole: ['donor', 'admin', 'super-admin', 'public'],
+      render: () => <AccountPage />,
+    },
+    {
+      path: '/app/account/security',
+      kind: 'app',
+      requiresRole: ['donor', 'admin', 'super-admin', 'public'],
+      render: () => <SecurityPage />,
+    },
+    {
+      path: '/app/forbidden',
+      kind: 'app',
+      requiresRole: ['donor', 'admin', 'super-admin', 'public'],
+      render: () => <ForbiddenPage />,
+    },
     { path: '/app/donor', kind: 'donor', requiresRole: ['donor'], render: () => <DonorDashboardPage /> },
     { path: '/app/donor/history', kind: 'donor', requiresRole: ['donor'], render: () => <DonorHistoryPage /> },
     { path: '/app/donor/impact', kind: 'donor', requiresRole: ['donor'], render: () => <DonorImpactPage /> },
@@ -417,7 +525,7 @@ function AuthenticatedLayout({
   children: ReactElement
   mobileNavOpen: boolean
   setMobileNavOpen: (open: boolean) => void
-  signOut: () => void
+  signOut: () => void | Promise<void>
 }) {
   const navGroups = getNavGroups(user.role)
   const breadcrumbs = getBreadcrumbs(window.location.pathname)
@@ -429,7 +537,15 @@ function AuthenticatedLayout({
           <img src={siteImages.logo} alt="" className="brand-logo-img brand-logo-img--sm" width={36} height={36} />
           <div className="brand-text-block">
             <span className="brand-mark">INTEX</span>
-            <span>{user.role === 'super-admin' ? 'Global command' : user.role === 'admin' ? 'Facility workspace' : 'Donor portal'}</span>
+            <span>
+              {user.role === 'super-admin'
+                ? 'Global command'
+                : user.role === 'admin'
+                  ? 'Facility workspace'
+                  : user.role === 'donor'
+                    ? 'Donor portal'
+                    : 'Signed in'}
+            </span>
           </div>
         </div>
         {navGroups.map((group) => (
@@ -455,7 +571,16 @@ function AuthenticatedLayout({
           </button>
           <div className="topbar-context">
             <span className="eyebrow">Current context</span>
-            <strong>{user.facilityName ?? (user.role === 'super-admin' ? 'All facilities' : 'Donor self service')}</strong>
+            <strong>
+              {user.facilityName ??
+                (user.role === 'super-admin'
+                  ? 'All facilities'
+                  : user.role === 'public'
+                    ? 'No role assigned — ask an admin to add you to Admin or Donor in Identity'
+                    : user.role === 'admin'
+                      ? 'Facility operations'
+                      : 'Donor self service')}
+            </strong>
           </div>
           <div className="topbar-account">
             <div>
@@ -466,8 +591,10 @@ function AuthenticatedLayout({
               className="ghost-button"
               type="button"
               onClick={() => {
-                signOut()
-                navigate('/login')
+                void (async () => {
+                  await signOut()
+                  navigate('/login')
+                })()
               }}
             >
               Sign out
@@ -493,6 +620,18 @@ function getNavGroups(role: UserRole) {
           ['/app/donor/history', 'Giving history'],
           ['/app/donor/impact', 'Impact of giving'],
           ['/app/donor/profile', 'Profile'],
+        ],
+      },
+    ]
+  }
+
+  if (role === 'public') {
+    return [
+      {
+        title: 'Account',
+        links: [
+          ['/app/account', 'Profile & settings'],
+          ['/app/account/security', 'Security & session'],
         ],
       },
     ]
@@ -848,11 +987,37 @@ function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
   )
 }
 
+function SessionWelcomeBanner() {
+  const { user } = useSession()
+
+  if (!user) {
+    return null
+  }
+
+  let scopeLine: string | null = null
+  if (user.role === 'donor' && user.supporterId != null) {
+    scopeLine = `Linked supporter record #${user.supporterId}.`
+  } else if (user.role === 'admin' && user.safehouseIds && user.safehouseIds.length > 0) {
+    scopeLine = `Assigned safehouse IDs: ${user.safehouseIds.join(', ')}.`
+  } else if (user.role === 'super-admin') {
+    scopeLine = 'Organization-wide access (not restricted to a single facility).'
+  }
+
+  return (
+    <div className="source-note">
+      <strong>Signed in as {user.fullName}</strong>
+      {user.email ? <span> · {user.email}</span> : null}
+      {scopeLine ? <p style={{ margin: '0.35rem 0 0' }}>{scopeLine}</p> : null}
+    </div>
+  )
+}
+
 function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean }) {
   const { signIn } = useSession()
-  const [fullName, setFullName] = useState('Jordan Ellis')
-  const [email, setEmail] = useState('jordan@example.org')
-  const [role, setRole] = useState<UserRole>('admin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   return (
     <div className="public-page">
@@ -860,7 +1025,7 @@ function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean }) {
         <span className="eyebrow">Login</span>
         <h1>Enter the protected INTEX workspace.</h1>
         <p>
-          The backend auth endpoints exist under <code>/auth/*</code>, but until full authentication is wired the frontend uses a demo-safe session selector so protected routes, layouts, and role-aware UX can still be implemented.
+          Sign in with your account from the API. The session uses an HTTP-only auth cookie; the frontend calls <code>/auth/login</code> and <code>/auth/me</code> with credentials included.
         </p>
       </section>
 
@@ -870,44 +1035,65 @@ function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean }) {
         </div>
       ) : null}
 
-      <Surface title="Sign in" subtitle="Use a demo role to preview donor, admin, or super-admin experiences.">
+      <Surface title="Sign in" subtitle="Use the email and password configured for your environment (see backend seed docs).">
         <form
           className="form-grid"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault()
-
-            const nextUser: SessionUser = {
-              email,
-              fullName,
-              role,
-              facilityName: role === 'admin' ? 'Hope House Manila' : role === 'super-admin' ? 'All facilities' : undefined,
+            setError(null)
+            setSubmitting(true)
+            try {
+              await loginRequest(email, password)
+              const me = await fetchMe()
+              if (!me) {
+                setError('Signed in, but the server did not return a session. Check API CORS and cookies.')
+                return
+              }
+              const nextUser = mapMeToSessionUser(me)
+              signIn(nextUser)
+              if (nextUser.role === 'donor') {
+                navigate('/app/donor')
+              } else if (nextUser.role === 'super-admin') {
+                navigate('/app/super-admin')
+              } else if (nextUser.role === 'admin') {
+                navigate('/app/admin')
+              } else {
+                navigate('/app/account')
+              }
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Sign-in failed.')
+            } finally {
+              setSubmitting(false)
             }
-
-            signIn(nextUser)
-
-            if (role === 'donor') navigate('/app/donor')
-            else if (role === 'super-admin') navigate('/app/super-admin')
-            else navigate('/app/admin')
           }}
         >
-          <label>
-            Full name
-            <input value={fullName} onChange={(event) => setFullName(event.target.value)} />
-          </label>
-          <label>
+          {error ? (
+            <div className="source-note full-span" style={{ borderColor: 'var(--danger, #c0392b)' }}>
+              {error}
+            </div>
+          ) : null}
+          <label className="full-span">
             Email
-            <input value={email} onChange={(event) => setEmail(event.target.value)} />
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
           </label>
           <label className="full-span">
-            Demo role
-            <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
-              <option value="donor">Donor</option>
-              <option value="admin">Admin / staff</option>
-              <option value="super-admin">Super admin</option>
-            </select>
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
           </label>
-          <button className="primary-button full-span" type="submit">
-            Sign in
+          <button className="primary-button full-span" type="submit" disabled={submitting}>
+            {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
       </Surface>
@@ -983,9 +1169,19 @@ function CookiePage() {
 
 function RoleRedirectPage({ role }: { role: UserRole }) {
   useEffect(() => {
-    if (role === 'donor') navigate('/app/donor')
-    else if (role === 'super-admin') navigate('/app/super-admin')
-    else navigate('/app/admin')
+    // Only handle the hub route; avoid repeated history updates if something re-renders this view.
+    if (window.location.pathname !== '/app') {
+      return
+    }
+    const target =
+      role === 'donor'
+        ? '/app/donor'
+        : role === 'super-admin'
+          ? '/app/super-admin'
+          : role === 'public'
+            ? '/app/account'
+            : '/app/admin'
+    navigate(target)
   }, [role])
 
   return (
@@ -1004,6 +1200,19 @@ function AccountPage() {
 
   return (
     <PageSection title="Account" description="Shared account settings for the signed-in user.">
+      {user.role === 'public' ? (
+        <Surface
+          title="No application role on your account"
+          subtitle="The API returned an empty or unrecognized roles list, so the UI cannot open facility or donor workspaces."
+        >
+          <p style={{ margin: 0 }}>
+            Staff need the <strong>Admin</strong> role (and usually a row in <code>staff_safehouse_assignments</code>); donors need{' '}
+            <strong>Donor</strong>. In Supabase, check <code>AspNetUserRoles</code> links your user id to the correct{' '}
+            <code>AspNetRoles</code> row (<code>Name</code> is <code>Admin</code>, <code>Donor</code>, or <code>SuperAdmin</code>
+            ). After fixing data, sign out and sign in again.
+          </p>
+        </Surface>
+      ) : null}
       <div className="stat-grid">
         <StatCard label="Name" value={user.fullName} />
         <StatCard label="Email" value={user.email} />
@@ -1017,12 +1226,35 @@ function SecurityPage() {
   return (
     <PageSection
       title="Security and session support"
-      description="This page should eventually reflect the backend auth approach, session model, and any MFA or third-party auth additions."
+      description="How the browser talks to the API for sign-in and how the UI should reason about sessions."
     >
-      <Surface title="Current implementation note" subtitle="Backend authentication is still pending.">
-        <p>
-          The frontend already separates public and protected experiences, supports protected route behavior, and is ready for a typed auth client once `/auth/login` and related session endpoints are completed.
-        </p>
+      <Surface title="Cookie session (ASP.NET Core Identity)" subtitle="Aligned with the backend auth implementation.">
+        <div className="stack-list">
+          <div className="stack-row">
+            <strong>Sign-in</strong>
+            <p>
+              POST <code>/auth/login</code> with email and password. The API sets an HTTP-only cookie (<code>Intex.Auth</code>); the frontend never stores the password after submit.
+            </p>
+          </div>
+          <div className="stack-row">
+            <strong>Session check</strong>
+            <p>
+              GET <code>/auth/me</code> on load and after login. Requests use <code>fetch</code> with <code>credentials: &apos;include&apos;</code> so the cookie is sent (see <code>frontend/src/lib/authApi.ts</code>).
+            </p>
+          </div>
+          <div className="stack-row">
+            <strong>Sign-out</strong>
+            <p>
+              POST <code>/auth/logout</code> clears the cookie; the session context clears local user state.
+            </p>
+          </div>
+          <div className="stack-row">
+            <strong>Roles</strong>
+            <p>
+              API roles <code>Donor</code>, <code>Admin</code>, and <code>SuperAdmin</code> map to UI routes for donor portal, facility workspace, and global oversight. Authorization for data still belongs on the server.
+            </p>
+          </div>
+        </div>
       </Surface>
     </PageSection>
   )
@@ -1037,11 +1269,30 @@ function ForbiddenPage() {
 }
 
 function DonorDashboardPage() {
-  const donor = mockSupporters[0]
+  const { user } = useSession()
+  const { supporter: donor, usingFallback } = resolveMockSupporter(
+    user?.role === 'donor' ? user.supporterId : undefined,
+  )
   const donations = mockDonations.filter((donation) => donation.supporterId === donor.supporterId)
 
   return (
-    <PageSection title="Donor overview" description="A transparent, personal summary of giving and impact.">
+    <>
+      <SessionWelcomeBanner />
+      <PageSection title="Donor overview" description="A transparent, personal summary of giving and impact.">
+      {usingFallback ? (
+        <Surface
+          title="Demo data mapping"
+          subtitle={
+            user?.supporterId != null
+              ? `No mock supporter row matches supporterId ${user.supporterId} from the API — showing sample record #${donor.supporterId}.`
+              : 'Your session has no supporterId yet — showing sample donor data until the account is linked in the database.'
+          }
+        >
+          <p style={{ margin: 0 }}>
+            When <code>/auth/me</code> returns a <code>supporterId</code> that exists in the prepared CSV-backed mock set, this dashboard personalizes to that donor.
+          </p>
+        </Surface>
+      ) : null}
       <div className="stat-grid">
         <StatCard label="Total gifts" value={String(donations.length)} />
         <StatCard label="Lifetime giving" value={`$${donations.reduce((sum, donation) => sum + donation.amount, 0).toLocaleString()}`} />
@@ -1073,11 +1324,13 @@ function DonorDashboardPage() {
         </Surface>
       </div>
     </PageSection>
+    </>
   )
 }
 
 function DonorHistoryPage() {
-  const donor = mockSupporters[0]
+  const { user } = useSession()
+  const { supporter: donor } = resolveMockSupporter(user?.role === 'donor' ? user.supporterId : undefined)
   const donations = mockDonations.filter((donation) => donation.supporterId === donor.supporterId)
 
   return (
@@ -1120,7 +1373,8 @@ function DonorImpactPage() {
 }
 
 function DonorProfilePage() {
-  const donor = mockSupporters[0]
+  const { user } = useSession()
+  const { supporter: donor } = resolveMockSupporter(user?.role === 'donor' ? user.supporterId : undefined)
 
   return (
     <PageSection title="Profile" description="A lightweight self-service profile for donor contact and preference updates.">
@@ -1152,17 +1406,42 @@ function DonorProfilePage() {
 }
 
 function AdminDashboardPage() {
+  const { user } = useSession()
   const residents = useApiResource('/residents', mockResidents)
   const donations = useApiResource('/donations', mockDonations)
   const safehouses = useApiResource('/safehouses', mockSafehouses)
-  const highRiskResidents = residents.data.filter((resident) => resident.currentRiskLevel === 'High').length
+  const residentsScoped = useMemo(() => {
+    if (!user) {
+      return residents.data
+    }
+    return filterResidentsForSessionUser(user, residents.data)
+  }, [user, residents.data])
+  const safehousesScoped = useMemo(() => {
+    if (!user) {
+      return safehouses.data
+    }
+    return filterSafehousesForSessionUser(user, safehouses.data)
+  }, [user, safehouses.data])
+  const highRiskResidents = residentsScoped.filter((resident) => resident.currentRiskLevel === 'High').length
 
   return (
-    <PageSection title="Admin dashboard" description="A calm command center for local-facility operations.">
+    <>
+      <SessionWelcomeBanner />
+      <PageSection title="Admin dashboard" description="A calm command center for local-facility operations.">
+      {user?.role === 'admin' && user.safehouseIds?.length ? (
+        <Surface
+          title="Facility scope"
+          subtitle={`Showing residents and safehouses for safehouse id(s): ${user.safehouseIds.join(', ')}.`}
+        >
+          <p style={{ margin: 0 }}>
+            SuperAdmin accounts see all facilities; facility staff see only assignments from <code>/auth/me</code> <code>safehouseIds</code>.
+          </p>
+        </Surface>
+      ) : null}
       <div className="stat-grid">
-        <StatCard label="Active residents" value={String(residents.data.filter((resident) => resident.caseStatus === 'Active').length)} hint="Core care workload" />
+        <StatCard label="Active residents" value={String(residentsScoped.filter((resident) => resident.caseStatus === 'Active').length)} hint="Core care workload" />
         <StatCard label="Recent donations" value={String(donations.data.length)} hint="Read-heavy backend routes are ready" />
-        <StatCard label="Open safehouses" value={String(safehouses.data.length)} hint="Operations surface" />
+        <StatCard label="Open safehouses" value={String(safehousesScoped.length)} hint="Operations surface" />
         <StatCard label="High-risk residents" value={String(highRiskResidents)} hint="Ideal first ML workflow" />
       </div>
       <div className="two-column-grid">
@@ -1192,14 +1471,22 @@ function AdminDashboardPage() {
         </Surface>
       </div>
     </PageSection>
+    </>
   )
 }
 
 function CaseloadPage() {
+  const { user } = useSession()
   const residents = useApiResource('/residents', mockResidents)
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('All')
-  const filteredResidents = residents.data.filter((resident) => {
+  const residentsScoped = useMemo(() => {
+    if (!user) {
+      return residents.data
+    }
+    return filterResidentsForSessionUser(user, residents.data)
+  }, [user, residents.data])
+  const filteredResidents = residentsScoped.filter((resident) => {
     const matchesSearch =
       resident.caseControlNo.toLowerCase().includes(search.toLowerCase()) ||
       resident.assignedSocialWorker.toLowerCase().includes(search.toLowerCase()) ||
@@ -1264,10 +1551,22 @@ function CaseloadPage() {
 }
 
 function ResidentDetailPage({ residentId }: { residentId: number }) {
+  const { user } = useSession()
   const resident = mockResidents.find((item) => item.residentId === residentId)
 
   if (!resident) {
     return <PageSection title="Resident not found" description="The selected resident could not be located."><EmptyState title="No resident found" description="Choose a resident from the caseload inventory." /></PageSection>
+  }
+
+  if (user && !canSessionUserAccessResident(user, resident)) {
+    return (
+      <PageSection title="Outside your facility scope" description="This resident belongs to a safehouse you are not assigned to.">
+        <ErrorState
+          title="Not available in your scope"
+          description={`Resident ${resident.caseControlNo} is at safehouse ${resident.safehouseId}. Your assignments: ${user.safehouseIds?.length ? user.safehouseIds.join(', ') : 'none'}.`}
+        />
+      </PageSection>
+    )
   }
 
   const residentLinks = [
@@ -1561,10 +1860,17 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
 }
 
 function SafehousesPage() {
+  const { user } = useSession()
   const safehouses = useApiResource('/safehouses', mockSafehouses)
   const [regionFilter, setRegionFilter] = useState('All regions')
-  const regions = Array.from(new Set(safehouses.data.map((safehouse) => safehouse.region)))
-  const filteredSafehouses = safehouses.data.filter((safehouse) =>
+  const scoped = useMemo(() => {
+    if (!user) {
+      return safehouses.data
+    }
+    return filterSafehousesForSessionUser(user, safehouses.data)
+  }, [user, safehouses.data])
+  const regions = Array.from(new Set(scoped.map((safehouse) => safehouse.region)))
+  const filteredSafehouses = scoped.filter((safehouse) =>
     regionFilter === 'All regions' ? true : safehouse.region === regionFilter,
   )
 
@@ -1612,11 +1918,23 @@ function SafehousesPage() {
 }
 
 function SafehouseDetailPage({ safehouseId }: { safehouseId: number }) {
+  const { user } = useSession()
   const safehouse = mockSafehouses.find((item) => item.safehouseId === safehouseId)
   const metrics = mockSafehouseMetrics.filter((item) => item.safehouseId === safehouseId)
 
   if (!safehouse) {
     return <PageSection title="Safehouse not found" description="The selected facility could not be located."><EmptyState title="No safehouse found" description="Choose a facility from the safehouse list." /></PageSection>
+  }
+
+  if (user && !canSessionUserAccessSafehouse(user, safehouseId)) {
+    return (
+      <PageSection title="Outside your facility scope" description="This safehouse is not in your assigned scope.">
+        <ErrorState
+          title="Not available in your scope"
+          description={`You are not assigned to safehouse ${safehouseId}. Your assignments: ${user.safehouseIds?.length ? user.safehouseIds.join(', ') : 'none'}.`}
+        />
+      </PageSection>
+    )
   }
 
   return (
@@ -1677,6 +1995,10 @@ function PartnersPage() {
 
 function ReportsPage() {
   const impactSnapshots = useApiResource('/public-impact-snapshots', mockImpactSnapshots)
+  const useMockStyleSnapshotColumns = impactSnapshotsUseMockColumns(impactSnapshots.data)
+  const snapshotColumns = useMockStyleSnapshotColumns
+    ? [...IMPACT_SNAPSHOT_COLUMNS_MOCK]
+    : [...IMPACT_SNAPSHOT_COLUMNS_API]
 
   return (
     <PageSection title="Reports and analytics" description="This area should feel like structured reporting, not a generic BI dump.">
@@ -1687,13 +2009,8 @@ function ReportsPage() {
       </div>
       <Surface title="Published impact snapshots" subtitle="Treat these as reporting inputs, not just public content.">
         <DataTable
-          columns={['Snapshot', 'Date', 'Residents served', 'Reintegration rate']}
-          rows={impactSnapshots.data.map((snapshot) => [
-            snapshot.headline,
-            snapshot.snapshotDate,
-            snapshot.residentsServed.toString(),
-            `${Math.round(snapshot.reintegrationRate * 100)}%`,
-          ])}
+          columns={[...snapshotColumns]}
+          rows={impactSnapshots.data.map((snapshot) => [...impactSnapshotTableRow(snapshot)])}
         />
       </Surface>
     </PageSection>
@@ -1743,24 +2060,27 @@ function OutreachPage() {
             rows={filteredPosts.map((post) => [
               post.platform,
               post.contentTopic,
-              `${Math.round(post.engagementRate * 100)}%`,
-              post.donationReferrals.toString(),
+              `${Math.round((post.engagementRate ?? 0) * 100)}%`,
+              String(post.donationReferrals ?? 0),
             ])}
           />
         </Surface>
         <Surface title="Published snapshot context" subtitle="Use impact snapshots to align public messaging with real outcomes.">
           <div className="stack-list">
-            {snapshots.data.map((snapshot) => (
-              <div className="stack-row" key={snapshot.snapshotId}>
-                <div>
-                  <strong>{snapshot.headline}</strong>
-                  <p>{snapshot.snapshotDate}</p>
+            {snapshots.data.map((snapshot, index) => {
+              const row = impactSnapshotOutreachRow(snapshot, index)
+              return (
+                <div className="stack-row" key={row.key}>
+                  <div>
+                    <strong>{row.headline}</strong>
+                    <p>{row.dateLine}</p>
+                  </div>
+                  <div className="align-right">
+                    <p>{row.detail}</p>
+                  </div>
                 </div>
-                <div className="align-right">
-                  <p>{snapshot.residentsServed} residents served</p>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Surface>
       </div>
@@ -1770,7 +2090,9 @@ function OutreachPage() {
 
 function SuperAdminDashboardPage() {
   return (
-    <PageSection title="Global dashboard" description="Cross-facility oversight should feel distinct from the local admin dashboard.">
+    <>
+      <SessionWelcomeBanner />
+      <PageSection title="Global dashboard" description="Cross-facility oversight should feel distinct from the local admin dashboard.">
       <div className="stat-grid">
         <StatCard label="Facilities" value={String(mockSafehouses.length)} />
         <StatCard label="Users in scope" value="24" />
@@ -1783,6 +2105,7 @@ function SuperAdminDashboardPage() {
         </p>
       </Surface>
     </PageSection>
+    </>
   )
 }
 
@@ -1917,7 +2240,7 @@ function PageSection({
 }: {
   title: string
   description: string
-  children: ReactElement | ReactElement[]
+  children: ReactNode
 }) {
   return (
     <section className="app-page">
