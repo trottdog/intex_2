@@ -91,7 +91,7 @@ if (app.Environment.IsDevelopment())
 
 // BookList: app.UseCors(x => x.WithOrigins("http://localhost:3000"));
 // Vite (this repo) defaults to 5173; include both for local full-stack dev.
-app.UseCors(x => x.WithOrigins("http://localhost:5173", "http://localhost:3000"));
+app.UseCors(x => x.WithOrigins("http://localhost:5173", "http://localhost:3000", "https://beacon.trottdog.com"));
 
 app.UseHttpsRedirection();
 
