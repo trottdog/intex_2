@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Safehouse } from '../../data/mockData'
-import { sendJson, useApiResource } from '../../lib/api'
+import { fetchJson, sendJson, useApiResource } from '../../lib/api'
 import { DataTable, EmptyState, ErrorState, FilterToolbar, SkeletonSurface, SkeletonTable, StatusPill, Surface } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
 import { asLowerText, asText } from '../../utils/helpers'
@@ -27,6 +27,7 @@ export function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [formSuccess, setFormSuccess] = useState<string | null>(null)
 
   const [createEmail, setCreateEmail] = useState('')
   const [createPassword, setCreatePassword] = useState('')
@@ -70,15 +71,37 @@ export function UsersPage() {
 
   async function submitCreate() {
     setFormError(null)
+    setFormSuccess(null)
     setBusy(true)
     try {
-      await sendJson<UserRecord>('/admin/users', 'POST', {
-        email: createEmail.trim(),
-        password: createPassword,
-        fullName: createName.trim(),
-        role: createRole,
-        safehouseIds: createRole === 'Admin' ? createSafehouses : [],
-      })
+      const email = createEmail.trim()
+      const fullName = createName.trim()
+      const role = createRole
+      const safehouseIds = createRole === 'Admin' ? createSafehouses : []
+
+      try {
+        await sendJson<UserRecord>('/admin/users', 'POST', {
+          email,
+          password: createPassword,
+          fullName,
+          role,
+          safehouseIds,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toLowerCase() : ''
+        if (!message.includes('failed to fetch')) {
+          throw error
+        }
+
+        // If the network drops after write, verify by checking whether the new account exists.
+        const latestUsers = await fetchJson<UserRecord[]>('/admin/users')
+        const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
+        if (!createdUser) {
+          throw error
+        }
+      }
+
+      setFormSuccess(`Account created successfully for ${email}.`)
       setCreateEmail('')
       setCreatePassword('')
       setShowCreatePassword(false)
@@ -346,6 +369,7 @@ export function UsersPage() {
             </div>
           }
         >
+          {formSuccess ? <p style={{ color: '#1b5e20', marginBottom: '0.75rem' }}>{formSuccess}</p> : null}
           {users.error ? <ErrorState title="Could not load users" description={users.error} /> : null}
           <FilterToolbar>
             <label>
