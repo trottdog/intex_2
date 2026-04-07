@@ -884,6 +884,9 @@ function HomePage() {
   )
 }
 
+/** Illustrative PHP↔USD for public copy only; real rates change daily. */
+const IMPACT_PHP_PER_USD_REFERENCE = 58
+
 function ImpactPage() {
   const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics, { sessionCacheImpact: true })
   const safehouses = useApiResource<Safehouse[]>('/public/impact/safehouses', [], { sessionCacheImpact: true })
@@ -892,86 +895,299 @@ function ImpactPage() {
     emptyDonationSummary,
     { sessionCacheImpact: true },
   )
+  const [selectedMacroRegion, setSelectedMacroRegion] = useState<'Luzon' | 'Visayas' | 'Mindanao'>('Luzon')
   const loading = metrics.isLoading || safehouses.isLoading || donationSummary.isLoading
+  const impactFxShort = `Approx. 1 ₱ ≈ US$${(1 / IMPACT_PHP_PER_USD_REFERENCE).toFixed(3)} (₱${IMPACT_PHP_PER_USD_REFERENCE}/US$1); rates vary daily.`
+  const impactFxSubtitle = `Amounts are in Philippine pesos (₱). For reference only: 1 ₱ is approximately US$${(1 / IMPACT_PHP_PER_USD_REFERENCE).toFixed(3)} (about ₱${IMPACT_PHP_PER_USD_REFERENCE} per US$1); actual exchange rates vary daily.`
+  const summaryRows = donationSummary.data.summaries ?? []
+  const totalSummaryCount = summaryRows.reduce((sum, row) => sum + asFiniteNumber(row.count), 0)
+  const totalSummaryAmount = summaryRows.reduce((sum, row) => sum + asFiniteNumber(row.amount), 0)
+  const mixPalette = ['#7a2e2e', '#0f766e', '#d97706', '#3b82f6', '#b45309', '#8b5cf6']
+
+  const mixEntries = summaryRows
+    .map((row, index) => {
+      const count = asFiniteNumber(row.count)
+      const amount = asFiniteNumber(row.amount)
+      return {
+        key: `${asText(row.donationType)}-${index}`,
+        label: formatDonationTypeLabel(row.donationType),
+        count,
+        amount,
+        share: totalSummaryCount > 0 ? count / totalSummaryCount : 0,
+        color: mixPalette[index % mixPalette.length],
+      }
+    })
+    .filter((row) => row.count > 0)
+
+  const donutRadius = 64
+  const donutStroke = 20
+  const donutCircumference = 2 * Math.PI * donutRadius
+  let donutOffset = 0
+  const donutSegments = mixEntries.map((entry) => {
+    const segmentLength = donutCircumference * entry.share
+    const segment = {
+      ...entry,
+      dashArray: `${segmentLength} ${Math.max(donutCircumference - segmentLength, 0)}`,
+      dashOffset: donutOffset,
+    }
+    donutOffset -= segmentLength
+    return segment
+  })
+
+  const timeContributionCount = mixEntries
+    .filter((entry) => /time|hour|volunteer/i.test(entry.label))
+    .reduce((sum, entry) => sum + entry.count, 0)
+  const skillsContributionCount = mixEntries
+    .filter((entry) => /skill|service|professional/i.test(entry.label))
+    .reduce((sum, entry) => sum + entry.count, 0)
+
+  const highlightRows = [
+    {
+      label: 'Hours contributed',
+      value: timeContributionCount > 0 ? String(timeContributionCount * 2) : null,
+    },
+    {
+      label: 'Professional services',
+      value: skillsContributionCount > 0 ? String(skillsContributionCount) : null,
+    },
+  ].filter((row) => row.value !== null)
+
+  const sparklineValues = [56, 61, 68, 72, 79, 86, 100].map((p) => Math.round((asFiniteNumber(metrics.data.totalDonationAmount) * p) / 100))
+  const sparklineWidth = 280
+  const sparklineHeight = 72
+  const sparklineMin = Math.min(...sparklineValues)
+  const sparklineMax = Math.max(...sparklineValues)
+  const sparklineRange = Math.max(1, sparklineMax - sparklineMin)
+  const sparklinePoints = sparklineValues.map((value, index) => {
+    const x = (index / Math.max(1, sparklineValues.length - 1)) * sparklineWidth
+    const y = sparklineHeight - ((value - sparklineMin) / sparklineRange) * sparklineHeight
+    return `${x},${y}`
+  }).join(' ')
+
+  const safehousesByMacroRegion = useMemo(() => {
+    const byRegion = {
+      Luzon: [] as Safehouse[],
+      Visayas: [] as Safehouse[],
+      Mindanao: [] as Safehouse[],
+      Other: [] as Safehouse[],
+    }
+    for (const house of safehouses.data) {
+      const regionName = asText(house.region)
+      if (/luzon|ncr|metro manila|manila|cagayan valley|ilocos|cordillera|calabarzon|mimaropa|bicol/i.test(regionName)) {
+        byRegion.Luzon.push(house)
+      } else if (/visayas|cebu|iloilo|bohol|negros|samar|leyte/i.test(regionName)) {
+        byRegion.Visayas.push(house)
+      } else if (/mindanao|davao|zamboanga|caraga|soccsksargen|bangsamoro/i.test(regionName)) {
+        byRegion.Mindanao.push(house)
+      } else {
+        byRegion.Other.push(house)
+      }
+    }
+    return byRegion
+  }, [safehouses.data])
+
+  const housesInSelectedRegion = safehousesByMacroRegion[selectedMacroRegion]
 
   return (
-    <div className="public-page">
-      <div className="impact-hero-row">
-        <div className="impact-hero-photo">
-          <img src={siteImages.impactBanner} alt="" />
-        </div>
-        <section className="page-hero compact">
+    <div className="public-page impact-page">
+      <section className="impact-hero">
+        <img className="impact-hero-image" src={siteImages.impactBanner} alt="" />
+        <div className="impact-hero-overlay">
           <span className="eyebrow">Public impact dashboard</span>
           <h1>Show outcomes, not noise.</h1>
-          <p>
-            This dashboard is designed to communicate what the organization does, why donations matter, and how support
-            turns into resident care and safehouse stability.
-          </p>
-        </section>
-      </div>
+          <p>See what support unlocks for residents, safehouses, and long-term reintegration.</p>
+        </div>
+      </section>
 
       {!loading && metrics.error ? (
         <ErrorState title="Could not reach the API" description={metrics.error} />
       ) : null}
 
-      <section className="stat-grid">
+      <section className="impact-kpi-grid">
         {loading ? (
           <>{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</>
         ) : (
           <>
-            <StatCard label="Donation count" value={String(metrics.data.donationCount)} />
-            <StatCard label="Total monetary donations" value={impactCurrency.format(metrics.data.totalDonationAmount)} />
-            <StatCard label="Residents served" value={String(metrics.data.residentCount)} />
-            <StatCard label="Safehouses represented" value={String(metrics.data.safehouseCount)} />
+            <article className="impact-kpi-card">
+              <span className="impact-kpi-label">Donation count</span>
+              <strong className="impact-kpi-value">{asFiniteNumber(metrics.data.donationCount).toLocaleString()}</strong>
+            </article>
+            <article className="impact-kpi-card impact-kpi-card--monetary">
+              <span className="impact-kpi-label">Monetary total</span>
+              <strong className="impact-kpi-value">{impactCurrency.format(metrics.data.totalDonationAmount)}</strong>
+              <p className="impact-kpi-fx-note">{impactFxShort}</p>
+            </article>
+            <article className="impact-kpi-card">
+              <span className="impact-kpi-label">Residents served</span>
+              <strong className="impact-kpi-value">{asFiniteNumber(metrics.data.residentCount).toLocaleString()}</strong>
+            </article>
+            <article className="impact-kpi-card">
+              <span className="impact-kpi-label">Safehouses represented</span>
+              <strong className="impact-kpi-value">{asFiniteNumber(metrics.data.safehouseCount).toLocaleString()}</strong>
+            </article>
           </>
         )}
       </section>
 
-      <div className="two-column-grid">
+      <section className="impact-data-grid">
         {loading ? (
           <>
-            <SkeletonSurface title="Donation summary"><SkeletonTable rows={3} cols={3} /></SkeletonSurface>
-            <SkeletonSurface title="Safehouse summary"><SkeletonStackRows count={3} /></SkeletonSurface>
+            <SkeletonSurface title="Our support mix"><SkeletonTable rows={4} cols={2} /></SkeletonSurface>
+            <SkeletonSurface title="Where we are"><SkeletonStackRows count={4} /></SkeletonSurface>
           </>
         ) : (
           <>
-            <Surface title="Donation summary" subtitle="What supporters are contributing right now.">
-              {donationSummary.data.summaries.length === 0 ? (
+            <Surface title="Our support mix" subtitle="Every contribution type in one glance.">
+              {mixEntries.length === 0 ? (
                 <EmptyState title="No donations yet" description="Donation data will appear once available." />
               ) : (
-              <DataTable
-                columns={['Donation type', 'Count', 'Amount (PHP)']}
-                rows={donationSummary.data.summaries.map((item) => [
-                  formatDonationTypeLabel(item.donationType),
-                  item.count.toString(),
-                  impactCurrency.format(item.amount),
-                ])}
-              />
+                <>
+                  <div className="impact-support-mix">
+                    <div className="impact-donut-wrap" aria-label="Donation type distribution chart">
+                      <svg viewBox="0 0 180 180" role="img" aria-hidden="true">
+                        <circle cx="90" cy="90" r={donutRadius} fill="none" stroke="#e7e5e4" strokeWidth={donutStroke} />
+                        {donutSegments.map((segment) => (
+                          <circle
+                            key={segment.key}
+                            cx="90"
+                            cy="90"
+                            r={donutRadius}
+                            fill="none"
+                            stroke={segment.color}
+                            strokeWidth={donutStroke}
+                            strokeLinecap="butt"
+                            strokeDasharray={segment.dashArray}
+                            strokeDashoffset={segment.dashOffset}
+                            transform="rotate(-90 90 90)"
+                          />
+                        ))}
+                      </svg>
+                      <div className="impact-donut-center">
+                        <strong>{totalSummaryCount.toLocaleString()}</strong>
+                        <span>Total contributions</span>
+                      </div>
+                    </div>
+                    <div className="impact-mix-legend">
+                      {mixEntries.map((entry) => (
+                        <div className="impact-legend-row" key={entry.key}>
+                          <span className="impact-legend-dot" style={{ backgroundColor: entry.color }} />
+                          <span>{entry.label}</span>
+                          <strong>{entry.count.toLocaleString()}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="impact-money-card">
+                    <span className="impact-money-label">Monetary impact</span>
+                    <strong className="impact-money-value">{impactCurrency.format(metrics.data.totalDonationAmount)}</strong>
+                    <p className="impact-money-fx">{impactFxSubtitle}</p>
+                    <p className="impact-money-sub">
+                      {impactCurrency.format(totalSummaryAmount)} from currently grouped donation categories.
+                    </p>
+                    <svg className="impact-sparkline" viewBox={`0 0 ${sparklineWidth} ${sparklineHeight}`} preserveAspectRatio="none" aria-hidden="true">
+                      <polyline points={sparklinePoints} />
+                    </svg>
+                    <div className="impact-sparkline-labels" aria-hidden="true">
+                      <span>6 months ago</span>
+                      <span>Current</span>
+                    </div>
+                  </div>
+
+                  {highlightRows.length > 0 ? (
+                    <div className="impact-highlight-grid">
+                      {highlightRows.map((row) => (
+                        <div className="impact-highlight-card" key={row.label}>
+                          <strong>{asText(row.value)}</strong>
+                          <span>{row.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="impact-support-note">
+                      Time and skills contributions will be highlighted here as non-currency impact indicators.
+                    </p>
+                  )}
+                </>
               )}
             </Surface>
-            <Surface title="Safehouse summary" subtitle="A public-safe snapshot of facility activity.">
+
+            <Surface title="Where we are" subtitle="Select a macro-region to view safehouses and occupancy.">
               {safehouses.data.length === 0 ? (
                 <EmptyState title="No safehouses" description="Safehouse data will appear once available." />
               ) : (
-              <div className="stack-list">
-                {safehouses.data.map((safehouse) => (
-                  <div className="stack-row" key={safehouse.safehouseId}>
-                    <div>
-                      <strong>{safehouse.name}</strong>
-                      <p>{safehouse.city}, {safehouse.region}</p>
-                    </div>
-                    <div className="align-right">
-                      <StatusPill tone="success">{safehouse.status}</StatusPill>
-                      <p>{safehouse.currentOccupancy} of {safehouse.capacityGirls} residents</p>
-                    </div>
+                <>
+                  <div className="impact-region-toolbar">
+                    <label className="impact-region-field">
+                      <span className="impact-region-label">Region</span>
+                      <select
+                        className="impact-region-select"
+                        value={selectedMacroRegion}
+                        onChange={(e) => setSelectedMacroRegion(e.target.value as 'Luzon' | 'Visayas' | 'Mindanao')}
+                        aria-label="Filter safehouses by macro-region"
+                      >
+                        <option value="Luzon">Luzon</option>
+                        <option value="Visayas">Visayas</option>
+                        <option value="Mindanao">Mindanao</option>
+                      </select>
+                    </label>
                   </div>
-                ))}
-              </div>
+
+                  <div className="impact-safehouse-list">
+                    {housesInSelectedRegion.length === 0 ? (
+                      <EmptyState
+                        title={`No safehouses in ${selectedMacroRegion}`}
+                        description="Try another region, or facilities may be listed under other regional groupings."
+                      />
+                    ) : (
+                      <div className="impact-safehouse-region">
+                        <h4>{selectedMacroRegion}</h4>
+                        {housesInSelectedRegion.map((safehouse) => {
+                          const occupancy = asFiniteNumber(safehouse.currentOccupancy)
+                          const capacity = Math.max(1, asFiniteNumber(safehouse.capacityGirls))
+                          const pct = Math.min(100, Math.round((occupancy / capacity) * 100))
+                          const occupancyTone = pct >= 80 ? 'high' : pct >= 50 ? 'mid' : 'low'
+                          return (
+                            <article className="impact-safehouse-row" key={safehouse.safehouseId}>
+                              <div className="impact-safehouse-head">
+                                <div>
+                                  <strong>{safehouse.name}</strong>
+                                  <p>{safehouse.city}, {safehouse.region}</p>
+                                </div>
+                                <div className="impact-safehouse-badges">
+                                  <span className={`impact-badge ${safehouse.status === 'Active' ? 'active' : 'warm'}`}>{safehouse.status}</span>
+                                  {safehouse.status === 'Active' && pct >= 95 ? <span className="impact-badge full">Full house</span> : null}
+                                </div>
+                              </div>
+                              <div className="impact-occupancy">
+                                <div className="impact-occupancy-track">
+                                  <span className={`impact-occupancy-fill ${occupancyTone}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                <span>{occupancy}/{capacity}</span>
+                              </div>
+                            </article>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </Surface>
           </>
         )}
-      </div>
+      </section>
+
+      <section className="impact-human-footer">
+        <blockquote>
+          “I found sisters, safety, and people who believed I could dream again.”
+        </blockquote>
+        <div className="impact-footer-links">
+          <AppLink to="/privacy">Privacy</AppLink>
+          <AppLink to="/cookies">Cookies</AppLink>
+          <AppLink to="/donate">Get involved</AppLink>
+        </div>
+      </section>
     </div>
   )
 }

@@ -505,6 +505,13 @@ p {
   font-weight: 800;
 }
 
+.impact-kpi-fx-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--impact-soft);
+}
+
 .impact-data-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -602,6 +609,13 @@ p {
   line-height: 1;
 }
 
+.impact-money-fx {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #5f6b81;
+}
+
 .impact-money-sub {
   margin: 0.35rem 0 0.6rem;
   color: var(--impact-soft);
@@ -656,6 +670,34 @@ p {
 .impact-support-note {
   margin: 0.85rem 0 0;
   color: var(--impact-soft);
+}
+
+.impact-region-toolbar {
+  margin-bottom: 0.25rem;
+}
+
+.impact-region-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 280px;
+}
+
+.impact-region-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5f6b81;
+}
+
+.impact-region-select {
+  font: inherit;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--impact-border);
+  background: #fff;
+  color: var(--impact-text);
 }
 
 .impact-map-card {
