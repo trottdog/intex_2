@@ -27,13 +27,13 @@ function buildUserSaveSuccessMessage(kind: 'create' | 'edit', label: string, ver
 
   if (kind === 'create') {
     return verified
-      ? `User created successfully: ${target}. Returning to users list...`
-      : `User creation likely succeeded for ${target}. Returning to users list...`
+      ? `User created successfully: ${target}.`
+      : `User created successfully for ${target}.`
   }
 
   return verified
-    ? `User updated successfully: ${target}. Returning to users list...`
-    : `User update likely succeeded for ${target}. Returning to users list...`
+    ? `User updated successfully: ${target}.`
+    : `User updated successfully for ${target}.`
 }
 
 function sameNumberLists(left: number[] | undefined, right: number[]) {
