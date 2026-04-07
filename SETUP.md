@@ -1,5 +1,32 @@
 # Lighthouse INTEX — Setup & Login Credentials
 
+## 0. Quick start (backend + frontend)
+
+From the repo root, open **two terminals**.
+
+**Terminal A (API):**
+
+```bash
+cd backend/intex/intex
+dotnet run
+```
+
+Expected API URL: **http://localhost:4000**
+
+**Terminal B (frontend):**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Expected frontend URL: **http://localhost:5173**
+
+Quick health check (optional): open **http://localhost:4000/auth/me** and confirm you get JSON (for example `{ "authenticated": false }` when not logged in).
+
+If the API fails at startup with `ConnectionStrings:DefaultConnection is missing or empty`, set your DB connection first (for example via `.env` or `dotnet user-secrets`) and restart.
+
 ## 1. Database
 
 **If your Supabase (or local Postgres) database is already up to date** with the INTEX schema and Identity tables, you do **not** need to re-apply SQL. Use this section only when creating a new database or verifying drift.
