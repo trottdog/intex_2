@@ -18,7 +18,7 @@ type UserRecord = {
 const roleApiValues = ['Donor', 'Admin', 'SuperAdmin'] as const
 
 type SuccessFeedback = {
-  kind: 'create' | 'delete'
+  kind: 'create' | 'edit' | 'delete'
   message: string
 }
 
@@ -27,6 +27,11 @@ const feedbackStyles: Record<SuccessFeedback['kind'], { color: string; backgroun
     color: '#1b5e20',
     backgroundColor: '#e8f5e9',
     borderColor: '#81c784',
+  },
+  edit: {
+    color: '#0d47a1',
+    backgroundColor: '#e3f2fd',
+    borderColor: '#90caf9',
   },
   delete: {
     color: '#b71c1c',
@@ -70,7 +75,7 @@ export function UsersPage() {
 
   useEffect(() => {
     if (!formSuccess) return
-    const timeoutId = window.setTimeout(() => setFormSuccess(null), 6000)
+    const timeoutId = window.setTimeout(() => setFormSuccess(null), 5000)
     return () => window.clearTimeout(timeoutId)
   }, [formSuccess])
 
@@ -181,13 +186,15 @@ export function UsersPage() {
     setFormError(null)
     setBusy(true)
     try {
+      const fullName = editName.trim()
       await sendJson<UserRecord>(`/admin/users/${editingId}`, 'PUT', {
-        fullName: editName.trim(),
+        fullName,
         role: editRole,
         status: editStatus,
         safehouseIds: editRole === 'Admin' ? editSafehouses : [],
       })
       setEditingId(null)
+      setFormSuccess({ kind: 'edit', message: `User updated successfully${fullName ? `: ${fullName}` : '.'}` })
       users.reload()
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Could not update user')
