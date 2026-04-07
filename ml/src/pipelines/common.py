@@ -13,7 +13,12 @@ import yaml
 
 from ml.src.modeling.explainability import plot_feature_importance, summarize_coefficients
 from ml.src.modeling.metrics import compare_models, evaluate_classifier
-from ml.src.modeling.train import encode_features, make_baseline_models, time_split_data
+from ml.src.modeling.train import (
+    encode_features,
+    make_baseline_models,
+    run_classification_baselines,
+    time_split_data,
+)
 
 
 @dataclass
@@ -74,25 +79,20 @@ def train_classification_pipeline(
     )
 
     models = make_baseline_models(task_type="classification")
-
-    results: list[dict[str, Any]] = []
-    fitted_models: dict[str, object] = {}
-
-    for model_name, model in models.items():
-        model.fit(encoded.train_features, y_train)
-        fitted_models[model_name] = model
-        predictions = model.predict(encoded.test_features)
-        if hasattr(model, "predict_proba"):
-            scores = model.predict_proba(encoded.test_features)[:, 1]
-        else:
-            scores = predictions
-
-        metrics = evaluate_classifier(y_test, predictions, scores)
-        results.append({"model_name": model_name, **metrics})
-
-    comparison = compare_models(results, sort_by=selection_metric)
+    baseline_runs = run_classification_baselines(
+        encoded.train_features,
+        y_train,
+        encoded.test_features,
+        y_test,
+        models=models,
+    )
+    comparison = compare_models(
+        [{"model_name": run.model_name, **run.metrics} for run in baseline_runs],
+        sort_by=selection_metric,
+    )
     best_row = comparison.iloc[0].to_dict()
     best_model_name = str(best_row["model_name"])
+    fitted_models = {run.model_name: run.model for run in baseline_runs}
     best_model = fitted_models[best_model_name]
 
     explainability_model_name = explanatory_model_name or (

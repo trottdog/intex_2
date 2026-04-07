@@ -80,3 +80,36 @@ def compare_models(results: list[dict[str, object]], *, sort_by: str) -> pd.Data
         return frame
 
     return frame.sort_values(sort_by, ascending=False).reset_index(drop=True)
+
+
+def summarize_model_metrics(
+    results: list[dict[str, object]],
+    *,
+    group_col: str = "model_name",
+    sort_by: str | None = None,
+) -> pd.DataFrame:
+    """Aggregate repeated model metrics into a mean/std summary frame."""
+
+    frame = pd.DataFrame(results)
+    if frame.empty:
+        return frame
+
+    numeric_columns = [
+        column
+        for column in frame.columns
+        if column != group_col and pd.api.types.is_numeric_dtype(frame[column])
+    ]
+    summary = (
+        frame.groupby(group_col, dropna=False)[numeric_columns]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    summary.columns = [
+        group_col if column == (group_col, "") else "_".join(part for part in column if part)
+        for column in summary.columns.to_flat_index()
+    ]
+
+    if sort_by is not None and f"{sort_by}_mean" in summary.columns:
+        summary = summary.sort_values(f"{sort_by}_mean", ascending=False)
+
+    return summary.reset_index(drop=True)

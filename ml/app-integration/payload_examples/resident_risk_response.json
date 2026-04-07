@@ -1,0 +1,26 @@
+{
+  "pipeline_name": "resident_risk",
+  "display_name": "Resident Risk",
+  "model_name": "logistic_regression",
+  "row_count": 3,
+  "predictions": [
+    {
+      "resident_id": 50,
+      "safehouse_id": 4,
+      "prediction": 0,
+      "prediction_score": 0.34708389784223204
+    },
+    {
+      "resident_id": 45,
+      "safehouse_id": 3,
+      "prediction": 0,
+      "prediction_score": 0.1626968520160678
+    },
+    {
+      "resident_id": 23,
+      "safehouse_id": 5,
+      "prediction": 1,
+      "prediction_score": 0.6090825835671279
+    }
+  ]
+}

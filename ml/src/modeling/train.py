@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -14,6 +15,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 from ml.src.config.settings import DEFAULT_RANDOM_STATE
+from ml.src.modeling.metrics import evaluate_classifier, evaluate_regressor
 
 
 @dataclass
@@ -24,6 +26,17 @@ class EncodedFeatureSet:
     train_features: pd.DataFrame
     test_features: pd.DataFrame | None
     preprocessor: ColumnTransformer
+
+
+@dataclass
+class BaselineRunResult:
+    """Container for a fitted baseline model and its evaluation outputs."""
+
+    model_name: str
+    model: object
+    metrics: dict[str, float]
+    predictions: pd.Series
+    scores: pd.Series | None = None
 
 
 def encode_features(
@@ -184,3 +197,91 @@ def make_baseline_models(
         }
 
     raise ValueError("task_type must be 'classification' or 'regression'")
+
+
+def run_classification_baselines(
+    train_features: pd.DataFrame,
+    y_train: pd.Series | list[int] | list[bool],
+    test_features: pd.DataFrame,
+    y_test: pd.Series | list[int] | list[bool],
+    *,
+    models: dict[str, object] | None = None,
+) -> list[BaselineRunResult]:
+    """Fit and evaluate the standard classification baselines."""
+
+    fitted_runs: list[BaselineRunResult] = []
+    selected_models = models or make_baseline_models(task_type="classification")
+    y_train_series = pd.Series(y_train, index=train_features.index).astype(int)
+    y_test_series = pd.Series(y_test, index=test_features.index).astype(int)
+
+    for model_name, model in selected_models.items():
+        estimator = model
+        estimator.fit(train_features, y_train_series)
+
+        predictions = pd.Series(
+            estimator.predict(test_features),
+            index=test_features.index,
+            dtype="int64",
+        )
+        if hasattr(estimator, "predict_proba"):
+            scores = pd.Series(
+                estimator.predict_proba(test_features)[:, 1],
+                index=test_features.index,
+                dtype="float64",
+            )
+        elif hasattr(estimator, "decision_function"):
+            scores = pd.Series(
+                estimator.decision_function(test_features),
+                index=test_features.index,
+                dtype="float64",
+            )
+        else:
+            scores = predictions.astype(float)
+
+        fitted_runs.append(
+            BaselineRunResult(
+                model_name=model_name,
+                model=estimator,
+                metrics=evaluate_classifier(y_test_series, predictions, scores),
+                predictions=predictions,
+                scores=scores,
+            )
+        )
+
+    return fitted_runs
+
+
+def run_regression_baselines(
+    train_features: pd.DataFrame,
+    y_train: pd.Series | list[float],
+    test_features: pd.DataFrame,
+    y_test: pd.Series | list[float],
+    *,
+    models: dict[str, object] | None = None,
+) -> list[BaselineRunResult]:
+    """Fit and evaluate the standard regression baselines."""
+
+    fitted_runs: list[BaselineRunResult] = []
+    selected_models = models or make_baseline_models(task_type="regression")
+    y_train_series = pd.Series(y_train, index=train_features.index, dtype=float)
+    y_test_series = pd.Series(y_test, index=test_features.index, dtype=float)
+
+    for model_name, model in selected_models.items():
+        estimator = model
+        estimator.fit(train_features, y_train_series)
+        predictions = pd.Series(
+            estimator.predict(test_features),
+            index=test_features.index,
+            dtype="float64",
+        )
+
+        fitted_runs.append(
+            BaselineRunResult(
+                model_name=model_name,
+                model=estimator,
+                metrics=evaluate_regressor(y_test_series, predictions),
+                predictions=predictions,
+            )
+        )
+
+    return fitted_runs

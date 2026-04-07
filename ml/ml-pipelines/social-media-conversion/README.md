@@ -1,3 +1,3 @@
 # Social Media Conversion
 
-This folder contains predictive and explanatory notebooks for social media conversion.
+This folder contains the predictive and explanatory Phase 5 notebook templates for `social_media_conversion`.

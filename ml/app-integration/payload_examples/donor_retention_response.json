@@ -1,0 +1,23 @@
+{
+  "pipeline_name": "donor_retention",
+  "display_name": "Donor Retention",
+  "model_name": "logistic_regression",
+  "row_count": 3,
+  "predictions": [
+    {
+      "supporter_id": 1,
+      "prediction": 0,
+      "prediction_score": 0.0051661077302331
+    },
+    {
+      "supporter_id": 2,
+      "prediction": 1,
+      "prediction_score": 0.8106153662005532
+    },
+    {
+      "supporter_id": 3,
+      "prediction": 0,
+      "prediction_score": 7.918833617089062e-07
+    }
+  ]
+}

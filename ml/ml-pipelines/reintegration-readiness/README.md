@@ -1,3 +1,3 @@
 # Reintegration Readiness
 
-This folder contains predictive and explanatory notebooks for reintegration readiness.
+This folder contains the predictive and explanatory Phase 5 notebook templates for `reintegration_readiness`.

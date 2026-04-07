@@ -1,0 +1,26 @@
+{
+  "pipeline_name": "reintegration_readiness",
+  "display_name": "Reintegration Readiness",
+  "model_name": "random_forest_classifier",
+  "row_count": 3,
+  "predictions": [
+    {
+      "resident_id": 50,
+      "safehouse_id": 4,
+      "prediction": 0,
+      "prediction_score": 0.0
+    },
+    {
+      "resident_id": 45,
+      "safehouse_id": 3,
+      "prediction": 0,
+      "prediction_score": 0.0
+    },
+    {
+      "resident_id": 23,
+      "safehouse_id": 5,
+      "prediction": 0,
+      "prediction_score": 0.0
+    }
+  ]
+}
