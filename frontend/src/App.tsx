@@ -884,6 +884,89 @@ function HomePage() {
   )
 }
 
+function ImpactStatCard({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
+  return (
+    <article className="impact-stat-card">
+      <span className="impact-stat-icon">{icon}</span>
+      <strong className="impact-stat-value">{value}</strong>
+      <span className="impact-stat-label">{label}</span>
+    </article>
+  )
+}
+
+function SupportBar({ label, count, total, color, emphasized, tooltip }: { label: string; count: number; total: number; color: string; emphasized?: boolean; tooltip?: string }) {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  return (
+    <div className={`support-bar-row${emphasized ? ' support-bar-row--primary' : ''}`}>
+      <div className="support-bar-header">
+        <span className="support-bar-label">
+          {label}
+          {tooltip ? (
+            <span className="support-bar-tip" aria-label={tooltip}>
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="7.5" fill="none" stroke="currentColor" strokeWidth="1" /><text x="8" y="12" textAnchor="middle" fontSize="11" fontWeight="600">?</text></svg>
+              <span className="support-bar-tip-text">{tooltip}</span>
+            </span>
+          ) : null}
+        </span>
+        <span className="support-bar-count">{count.toLocaleString()}</span>
+      </div>
+      <div className="support-bar-track">
+        <span className="support-bar-fill" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  )
+}
+
+function SafehouseCard({ safehouse }: { safehouse: Safehouse }) {
+  const occupancy = asFiniteNumber(safehouse.currentOccupancy)
+  const capacity = Math.max(1, asFiniteNumber(safehouse.capacityGirls))
+  const pct = Math.min(100, Math.round((occupancy / capacity) * 100))
+  const isActive = /active|open/i.test(safehouse.status)
+  const isFull = isActive && pct >= 95
+
+  return (
+    <article className="safehouse-card">
+      <div className="safehouse-card-header">
+        <div>
+          <strong className="safehouse-card-name">{safehouse.name}</strong>
+          <p className="safehouse-card-location">{safehouse.city}, {safehouse.region}</p>
+        </div>
+        <div className="safehouse-card-badges">
+          {isActive && !isFull && <span className="safehouse-badge safehouse-badge--active">Active</span>}
+          {isFull && <span className="safehouse-badge safehouse-badge--full">Full house</span>}
+          {!isActive && <span className="safehouse-badge safehouse-badge--neutral">{safehouse.status}</span>}
+        </div>
+      </div>
+      <div className="safehouse-card-capacity">
+        <div className="safehouse-capacity-bar">
+          <span className="safehouse-capacity-fill" style={{ width: `${pct}%` }} data-level={pct >= 90 ? 'high' : pct >= 50 ? 'mid' : 'low'} />
+        </div>
+        <span className="safehouse-capacity-text">{occupancy}/{capacity}</span>
+      </div>
+    </article>
+  )
+}
+
+function normalizeSupportKey(raw: string): string {
+  return raw.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
+}
+
+const IMPACT_SUPPORT_COLORS: Record<string, string> = {
+  monetary: '#7a2e2e',
+  'in kind': '#2f6b67',
+  time: '#d97706',
+  'social media': '#3b82f6',
+  skills: '#8b5cf6',
+}
+
+const IMPACT_SUPPORT_TOOLTIPS: Record<string, string> = {
+  monetary: 'Direct financial contributions used for safehouse operations, staff, and resident care.',
+  'in kind': 'Physical goods such as food, clothing, school supplies, and hygiene kits.',
+  time: 'Volunteer hours spent on mentorship, tutoring, and hands-on safehouse support.',
+  'social media': 'Awareness campaigns and shares that expand reach and attract new supporters.',
+  skills: 'Pro-bono professional services like counseling, legal aid, and medical care.',
+}
+
 function ImpactPage() {
   const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics, { sessionCacheImpact: true })
   const safehouses = useApiResource<Safehouse[]>('/public/impact/safehouses', [], { sessionCacheImpact: true })
@@ -892,86 +975,239 @@ function ImpactPage() {
     emptyDonationSummary,
     { sessionCacheImpact: true },
   )
+  const [selectedMacroRegion, setSelectedMacroRegion] = useState<'Luzon' | 'Visayas' | 'Mindanao'>('Luzon')
   const loading = metrics.isLoading || safehouses.isLoading || donationSummary.isLoading
 
+  const summaryRows = donationSummary.data.summaries ?? []
+  const totalSummaryCount = summaryRows.reduce((sum, row) => sum + asFiniteNumber(row.count), 0)
+  const totalSummaryAmount = summaryRows.reduce((sum, row) => sum + asFiniteNumber(row.amount), 0)
+
+  const mixEntries = summaryRows
+    .map((row, index) => {
+      const count = asFiniteNumber(row.count)
+      const label = formatDonationTypeLabel(row.donationType)
+      const key = normalizeSupportKey(asText(row.donationType))
+      return {
+        key: `${key}-${index}`,
+        label,
+        count,
+        color: IMPACT_SUPPORT_COLORS[key] ?? '#9ca3af',
+        emphasized: key === 'monetary',
+        tooltip: IMPACT_SUPPORT_TOOLTIPS[key],
+      }
+    })
+    .filter((row) => row.count > 0)
+
+  const timeCount = mixEntries
+    .filter((e) => /time|hour|volunteer/i.test(e.label))
+    .reduce((s, e) => s + e.count, 0)
+  const inKindCount = mixEntries
+    .filter((e) => /in.kind/i.test(e.label))
+    .reduce((s, e) => s + e.count, 0)
+
+  const safehousesByMacroRegion = useMemo(() => {
+    const byRegion = {
+      Luzon: [] as Safehouse[],
+      Visayas: [] as Safehouse[],
+      Mindanao: [] as Safehouse[],
+      Other: [] as Safehouse[],
+    }
+    for (const house of safehouses.data) {
+      const regionName = asText(house.region)
+      if (/luzon|ncr|metro manila|manila|cagayan valley|ilocos|cordillera|calabarzon|mimaropa|bicol/i.test(regionName)) {
+        byRegion.Luzon.push(house)
+      } else if (/visayas|cebu|iloilo|bohol|negros|samar|leyte/i.test(regionName)) {
+        byRegion.Visayas.push(house)
+      } else if (/mindanao|davao|zamboanga|caraga|soccsksargen|bangsamoro/i.test(regionName)) {
+        byRegion.Mindanao.push(house)
+      } else {
+        byRegion.Other.push(house)
+      }
+    }
+    return byRegion
+  }, [safehouses.data])
+
+  const housesInSelectedRegion = safehousesByMacroRegion[selectedMacroRegion]
+
+  const statIcons = {
+    heart: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </svg>
+    ),
+    currency: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M16 8h-4a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4H8" />
+        <path d="M12 6v2m0 8v2" />
+      </svg>
+    ),
+    people: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    home: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    ),
+  }
+
   return (
-    <div className="public-page">
-      <div className="impact-hero-row">
-        <div className="impact-hero-photo">
-          <img src={siteImages.impactBanner} alt="" />
+    <div className="public-page impact-page">
+      <section className="impact-hero">
+        <img className="impact-hero-image" src={siteImages.impactHero} alt="Children holding hands at the beach" />
+        <div className="impact-hero-overlay">
+          <h1>Our Impact</h1>
+          <p>Real outcomes for residents and safehouses across the Philippines</p>
         </div>
-        <section className="page-hero compact">
-          <span className="eyebrow">Public impact dashboard</span>
-          <h1>Show outcomes, not noise.</h1>
-          <p>
-            This dashboard is designed to communicate what the organization does, why donations matter, and how support
-            turns into resident care and safehouse stability.
-          </p>
-        </section>
-      </div>
+      </section>
 
       {!loading && metrics.error ? (
         <ErrorState title="Could not reach the API" description={metrics.error} />
       ) : null}
 
-      <section className="stat-grid">
+      <section className="impact-stats-grid">
         {loading ? (
           <>{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</>
         ) : (
           <>
-            <StatCard label="Donation count" value={String(metrics.data.donationCount)} />
-            <StatCard label="Total monetary donations" value={impactCurrency.format(metrics.data.totalDonationAmount)} />
-            <StatCard label="Residents served" value={String(metrics.data.residentCount)} />
-            <StatCard label="Safehouses represented" value={String(metrics.data.safehouseCount)} />
+            <ImpactStatCard
+              icon={statIcons.heart}
+              value={asFiniteNumber(metrics.data.donationCount).toLocaleString()}
+              label="Donations"
+            />
+            <ImpactStatCard
+              icon={statIcons.currency}
+              value={impactCurrency.format(metrics.data.totalDonationAmount)}
+              label="Total raised"
+            />
+            <ImpactStatCard
+              icon={statIcons.people}
+              value={asFiniteNumber(metrics.data.residentCount).toLocaleString()}
+              label="Residents served"
+            />
+            <ImpactStatCard
+              icon={statIcons.home}
+              value={asFiniteNumber(metrics.data.safehouseCount).toLocaleString()}
+              label="Safehouses"
+            />
           </>
         )}
       </section>
 
-      <div className="two-column-grid">
-        {loading ? (
-          <>
-            <SkeletonSurface title="Donation summary"><SkeletonTable rows={3} cols={3} /></SkeletonSurface>
-            <SkeletonSurface title="Safehouse summary"><SkeletonStackRows count={3} /></SkeletonSurface>
-          </>
-        ) : (
-          <>
-            <Surface title="Donation summary" subtitle="What supporters are contributing right now.">
-              {donationSummary.data.summaries.length === 0 ? (
-                <EmptyState title="No donations yet" description="Donation data will appear once available." />
-              ) : (
-              <DataTable
-                columns={['Donation type', 'Count', 'Amount (PHP)']}
-                rows={donationSummary.data.summaries.map((item) => [
-                  formatDonationTypeLabel(item.donationType),
-                  item.count.toString(),
-                  impactCurrency.format(item.amount),
-                ])}
-              />
-              )}
-            </Surface>
-            <Surface title="Safehouse summary" subtitle="A public-safe snapshot of facility activity.">
-              {safehouses.data.length === 0 ? (
-                <EmptyState title="No safehouses" description="Safehouse data will appear once available." />
-              ) : (
-              <div className="stack-list">
-                {safehouses.data.map((safehouse) => (
-                  <div className="stack-row" key={safehouse.safehouseId}>
-                    <div>
-                      <strong>{safehouse.name}</strong>
-                      <p>{safehouse.city}, {safehouse.region}</p>
-                    </div>
-                    <div className="align-right">
-                      <StatusPill tone="success">{safehouse.status}</StatusPill>
-                      <p>{safehouse.currentOccupancy} of {safehouse.capacityGirls} residents</p>
-                    </div>
-                  </div>
+      {!loading && (
+        <section className="impact-section">
+          <h2 className="impact-section-title">How Support Is Used</h2>
+          <p className="impact-section-subtitle">Every contribution makes a difference — here is how support breaks down.</p>
+
+          {mixEntries.length === 0 ? (
+            <EmptyState title="No donations yet" description="Donation data will appear once available." />
+          ) : (
+            <div className="impact-support-card">
+              <div className="support-bars">
+                {mixEntries.map((entry) => (
+                  <SupportBar
+                    key={entry.key}
+                    label={entry.label}
+                    count={entry.count}
+                    total={totalSummaryCount}
+                    color={entry.color}
+                    emphasized={entry.emphasized}
+                    tooltip={entry.tooltip}
+                  />
                 ))}
               </div>
-              )}
-            </Surface>
-          </>
-        )}
-      </div>
+              <div className="support-total">
+                <span className="support-total-label">Total monetary impact</span>
+                <strong className="support-total-value">{impactCurrency.format(totalSummaryAmount)}</strong>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {!loading && (totalSummaryAmount > 0 || inKindCount > 0 || timeCount > 0) && (
+        <section className="impact-translation">
+          <h2 className="impact-section-title">What This Means</h2>
+          <div className="impact-translation-grid">
+            {totalSummaryAmount > 0 && (
+              <div className="impact-translation-card">
+                <strong>{impactCurrency.format(totalSummaryAmount)} raised</strong>
+                <p>supports {asFiniteNumber(metrics.data.safehouseCount)} safehouse{metrics.data.safehouseCount !== 1 ? 's' : ''} across the Philippines</p>
+              </div>
+            )}
+            {inKindCount > 0 && (
+              <div className="impact-translation-card">
+                <strong>{inKindCount} in-kind donations</strong>
+                <p>essential supplies delivered to residents</p>
+              </div>
+            )}
+            {timeCount > 0 && (
+              <div className="impact-translation-card">
+                <strong>{timeCount * 2} hours</strong>
+                <p>of mentorship and care sessions</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {!loading && (
+        <section className="impact-section">
+          <h2 className="impact-section-title">Safehouses by Region</h2>
+          <p className="impact-section-subtitle">Select a region to view safehouse details and capacity.</p>
+
+          {safehouses.data.length === 0 ? (
+            <EmptyState title="No safehouses" description="Safehouse data will appear once available." />
+          ) : (
+            <>
+              <div className="impact-region-toolbar">
+                <label className="impact-region-field">
+                  <span className="impact-region-label">Region</span>
+                  <select
+                    className="impact-region-select"
+                    value={selectedMacroRegion}
+                    onChange={(e) => setSelectedMacroRegion(e.target.value as 'Luzon' | 'Visayas' | 'Mindanao')}
+                    aria-label="Filter safehouses by macro-region"
+                  >
+                    <option value="Luzon">Luzon</option>
+                    <option value="Visayas">Visayas</option>
+                    <option value="Mindanao">Mindanao</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="safehouse-grid">
+                {housesInSelectedRegion.length === 0 ? (
+                  <EmptyState
+                    title={`No safehouses in ${selectedMacroRegion}`}
+                    description="Try another region, or facilities may be listed under other regional groupings."
+                  />
+                ) : (
+                  housesInSelectedRegion.map((safehouse) => (
+                    <SafehouseCard key={safehouse.safehouseId} safehouse={safehouse} />
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      <section className="impact-closing">
+        <blockquote>
+          "I found sisters, safety, and people who believed I could dream again."
+        </blockquote>
+        <div className="impact-closing-links">
+          <AppLink to="/donate" className="impact-closing-cta">Get involved</AppLink>
+        </div>
+      </section>
     </div>
   )
 }
