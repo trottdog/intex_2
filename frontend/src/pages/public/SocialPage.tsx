@@ -1,83 +1,87 @@
-import { useEffect, useState } from 'react'
-import { AppLink } from '../../components/ui'
-import { asFiniteNumber } from '../../utils/helpers'
-import { socialChannels, mockCarouselPosts } from './socialData'
+import { featuredStory, recentUpdates, socialFollowOptions } from './socialData'
 
 export function SocialPage() {
-  const [activeIdx, setActiveIdx] = useState(0)
-  const total = mockCarouselPosts.length
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveIdx((prev) => (prev + 1) % total)
-    }, 4000)
-    return () => clearInterval(timer)
-  }, [total])
-
-  const post = mockCarouselPosts[activeIdx]
-
   return (
-    <div className="public-page">
-      <section className="page-hero compact social-hero-compact">
-        <span className="eyebrow">Connect with us</span>
-        <h1>Follow Beacon across every platform.</h1>
-      </section>
-
-      <section className="social-carousel-section">
-        <h2 className="social-carousel-heading">Recent posts</h2>
-        <div className="social-carousel-track" key={activeIdx}>
-          <div className="social-post-card">
-            <img className="social-post-photo" src={post.photo} alt="" loading="lazy" />
-            <div className="social-post-overlay">
-              <div className="social-post-header">
-                <span className="social-post-icon">{post.icon}</span>
-                <div>
-                  <strong>{post.handle}</strong>
-                  <span className="social-post-meta">{post.platform} · {post.time}</span>
-                </div>
-              </div>
-              <p className="social-post-text">{post.text}</p>
-              <div className="social-post-footer">
-                <span>♥ {asFiniteNumber(post.likes).toLocaleString()}</span>
-                <span>💬 {post.comments}</span>
-              </div>
-            </div>
-          </div>
+    <div className="public-page social-page">
+      <section className="social-section">
+        <div className="social-section-heading">
+          <span className="eyebrow">Featured story</span>
+          <h2>A closer look at one moment that mattered</h2>
         </div>
 
-        <div className="social-carousel-dots">
-          {mockCarouselPosts.map((_, i) => (
-            <button
-              key={i}
-              className={`carousel-dot${i === activeIdx ? ' active' : ''}`}
-              onClick={() => setActiveIdx(i)}
-              aria-label={`Go to post ${i + 1}`}
+        <article className="social-feature-card">
+          <div className="social-feature-image-wrap">
+            <img
+              className="social-feature-image"
+              src={featuredStory.image}
+              alt={featuredStory.alt}
+              loading="lazy"
+              style={{ objectPosition: featuredStory.objectPosition }}
             />
+          </div>
+          <div className="social-feature-body">
+            <span className="social-meta">{featuredStory.label}</span>
+            <h3>{featuredStory.title}</h3>
+            <p>{featuredStory.summary}</p>
+          </div>
+        </article>
+      </section>
+
+      <section className="social-section social-follow-section">
+        <div className="social-section-heading">
+          <span className="eyebrow">Follow Beacon</span>
+          <h2>Stay connected in the way that fits you best</h2>
+        </div>
+
+        <div className="social-follow-grid">
+          {socialFollowOptions.map((option) => (
+            <a
+              key={option.name}
+              href={option.href}
+              target={option.href.startsWith('http') ? '_blank' : undefined}
+              rel={option.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+              className="social-follow-card"
+            >
+              <span className={`social-follow-icon ${option.colorClass}`}>{option.icon}</span>
+              <div className="social-follow-body">
+                <h3>{option.name}</h3>
+                <span className="social-follow-handle">{option.handle}</span>
+                <p>{option.description}</p>
+              </div>
+            </a>
           ))}
         </div>
       </section>
 
-      <section className="social-icons-row">
-        {socialChannels.map((ch) => (
-          <a
-            key={ch.name}
-            href={ch.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="social-icon-pill"
-            title={`${ch.name} — ${ch.handle}`}
-          >
-            <span className={`social-icon-svg ${ch.colorClass}`}>{ch.icon}</span>
-            <span className="social-icon-label">{ch.name}</span>
-          </a>
-        ))}
+      <section className="social-section">
+        <div className="social-section-heading social-section-heading-row">
+          <div>
+            <span className="eyebrow">Recent updates</span>
+            <h2>Short snapshots from the community</h2>
+          </div>
+        </div>
+
+        <div className="social-updates-grid">
+          {recentUpdates.map((update) => (
+            <article key={`${update.title}-${update.label}`} className="social-update-card">
+              <div className="social-update-image-wrap">
+                <img
+                  className="social-update-image"
+                  src={update.image}
+                  alt={update.alt}
+                  loading="lazy"
+                  style={{ objectPosition: update.objectPosition }}
+                />
+              </div>
+              <div className="social-update-body">
+                <h3>{update.title}</h3>
+                <span className="social-meta">{update.label}</span>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="social-cta-band">
-        <h2>Help spread the word</h2>
-        <p>Every share, like, or follow connects more people to children who need support. Thank you for being part of the Beacon community.</p>
-        <AppLink to="/donate" className="primary-button">Make a difference today</AppLink>
-      </section>
     </div>
   )
 }

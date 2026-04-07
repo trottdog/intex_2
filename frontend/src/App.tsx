@@ -31,6 +31,10 @@ function BeaconApp() {
 
   const shell = resolveRoute(pathname, user?.role ?? 'public')
 
+  useEffect(() => {
+    document.title = shell.title ? `${shell.title} | BEACON` : 'BEACON'
+  }, [shell.title])
+
   const protectedArea = pathname.startsWith('/app')
   if (protectedArea) {
     if (sessionStatus === 'loading') {
