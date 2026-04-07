@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Safehouse } from '../../data/mockData'
-import { sendJson, useApiResource } from '../../lib/api'
+import { fetchJson, sendJson, useApiResource } from '../../lib/api'
 import { DataTable, EmptyState, ErrorState, FilterToolbar, SkeletonSurface, SkeletonTable, StatusPill, Surface } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
 import { asLowerText, asText } from '../../utils/helpers'
@@ -17,6 +17,45 @@ type UserRecord = {
 
 const roleApiValues = ['Donor', 'Admin', 'SuperAdmin'] as const
 
+type SuccessFeedback = {
+  kind: 'create' | 'delete'
+  message: string
+}
+
+const feedbackStyles: Record<SuccessFeedback['kind'], { color: string; backgroundColor: string; borderColor: string }> = {
+  create: {
+    color: '#1b5e20',
+    backgroundColor: '#e8f5e9',
+    borderColor: '#81c784',
+  },
+  delete: {
+    color: '#b71c1c',
+    backgroundColor: '#ffebee',
+    borderColor: '#ef9a9a',
+  },
+}
+
+function SuccessIcon({ kind }: { kind: SuccessFeedback['kind'] }) {
+  if (kind === 'delete') {
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6" />
+        <path d="M14 11v6" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.2 2.2 4.8-4.8" />
+    </svg>
+  )
+}
+
 export function UsersPage() {
   const users = useApiResource<UserRecord[]>('/admin/users', [])
   const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
@@ -27,6 +66,13 @@ export function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [formSuccess, setFormSuccess] = useState<SuccessFeedback | null>(null)
+
+  useEffect(() => {
+    if (!formSuccess) return
+    const timeoutId = window.setTimeout(() => setFormSuccess(null), 6000)
+    return () => window.clearTimeout(timeoutId)
+  }, [formSuccess])
 
   const [createEmail, setCreateEmail] = useState('')
   const [createPassword, setCreatePassword] = useState('')
@@ -70,15 +116,37 @@ export function UsersPage() {
 
   async function submitCreate() {
     setFormError(null)
+    setFormSuccess(null)
     setBusy(true)
     try {
-      await sendJson<UserRecord>('/admin/users', 'POST', {
-        email: createEmail.trim(),
-        password: createPassword,
-        fullName: createName.trim(),
-        role: createRole,
-        safehouseIds: createRole === 'Admin' ? createSafehouses : [],
-      })
+      const email = createEmail.trim()
+      const fullName = createName.trim()
+      const role = createRole
+      const safehouseIds = createRole === 'Admin' ? createSafehouses : []
+
+      try {
+        await sendJson<UserRecord>('/admin/users', 'POST', {
+          email,
+          password: createPassword,
+          fullName,
+          role,
+          safehouseIds,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toLowerCase() : ''
+        if (!message.includes('failed to fetch')) {
+          throw error
+        }
+
+        // If the network drops after write, verify by checking whether the new account exists.
+        const latestUsers = await fetchJson<UserRecord[]>('/admin/users')
+        const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
+        if (!createdUser) {
+          throw error
+        }
+      }
+
+      setFormSuccess({ kind: 'create', message: `Account created successfully for ${email}.` })
       setCreateEmail('')
       setCreatePassword('')
       setShowCreatePassword(false)
@@ -135,6 +203,7 @@ export function UsersPage() {
     try {
       await sendJson(`/admin/users/${id}`, 'DELETE', undefined)
       setEditingId(null)
+      setFormSuccess({ kind: 'delete', message: 'User deleted successfully.' })
       users.reload()
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Could not delete user')
@@ -142,6 +211,8 @@ export function UsersPage() {
       setBusy(false)
     }
   }
+
+  const activeFeedbackStyle = formSuccess ? feedbackStyles[formSuccess.kind] : null
 
   return (
     <PageSection title="Users" description="Create, update, lock, or remove accounts (super-admin only).">
@@ -346,6 +417,26 @@ export function UsersPage() {
             </div>
           }
         >
+          {formSuccess && activeFeedbackStyle ? (
+            <p
+              style={{
+                color: activeFeedbackStyle.color,
+                backgroundColor: activeFeedbackStyle.backgroundColor,
+                border: `1px solid ${activeFeedbackStyle.borderColor}`,
+                borderRadius: '0.6rem',
+                padding: '0.75rem 0.9rem',
+                marginBottom: '0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 600,
+              }}
+              role="status"
+            >
+              <SuccessIcon kind={formSuccess.kind} />
+              <span>{formSuccess.message}</span>
+            </p>
+          ) : null}
           {users.error ? <ErrorState title="Could not load users" description={users.error} /> : null}
           <FilterToolbar>
             <label>
