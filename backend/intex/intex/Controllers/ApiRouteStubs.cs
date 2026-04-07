@@ -1,5 +1,6 @@
 using intex.Data;
 using intex.Data.Entities;
+using intex.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,7 @@ public class PublicImpactController : ControllerBase
 // -------------------------------------------------------------------------
 [ApiController]
 [Route("supporters")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class SupportersController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -108,6 +110,7 @@ public class SupportersController : ControllerBase
 // -------------------------------------------------------------------------
 [ApiController]
 [Route("residents")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -137,6 +140,7 @@ public class ResidentsController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/case-conferences")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentCaseConferencesController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -186,6 +190,7 @@ public class ResidentCaseConferencesController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/home-visitations")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentHomeVisitationsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -219,6 +224,7 @@ public class ResidentHomeVisitationsController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/process-recordings")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentProcessRecordingsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -252,6 +258,7 @@ public class ResidentProcessRecordingsController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/education-records")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentEducationRecordsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -285,6 +292,7 @@ public class ResidentEducationRecordsController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/health-wellbeing-records")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentHealthWellbeingRecordsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -318,6 +326,7 @@ public class ResidentHealthWellbeingRecordsController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/incident-reports")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentIncidentReportsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -351,6 +360,7 @@ public class ResidentIncidentReportsController : ControllerBase
 
 [ApiController]
 [Route("residents/{residentId:long}/intervention-plans")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class ResidentInterventionPlansController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -387,6 +397,7 @@ public class ResidentInterventionPlansController : ControllerBase
 // -------------------------------------------------------------------------
 [ApiController]
 [Route("safehouses")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class SafehousesController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -416,6 +427,7 @@ public class SafehousesController : ControllerBase
 
 [ApiController]
 [Route("safehouses/{safehouseId:long}/monthly-metrics")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class SafehouseMonthlyMetricsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -452,6 +464,7 @@ public class SafehouseMonthlyMetricsController : ControllerBase
 // -------------------------------------------------------------------------
 [ApiController]
 [Route("partners")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class PartnersController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -481,6 +494,7 @@ public class PartnersController : ControllerBase
 
 [ApiController]
 [Route("partner-assignments")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class PartnerAssignmentsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -513,6 +527,7 @@ public class PartnerAssignmentsController : ControllerBase
 // -------------------------------------------------------------------------
 [ApiController]
 [Route("social-media-posts")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class SocialMediaPostsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -542,6 +557,7 @@ public class SocialMediaPostsController : ControllerBase
 
 [ApiController]
 [Route("public-impact-snapshots")]
+[Authorize(Policy = AuthorizationPolicies.AdminOnly)]
 public class PublicImpactSnapshotsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;

@@ -82,10 +82,12 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
+                minLength={12}
+                title="Password must be at least 12 characters"
               maxLength={128}
               required
             />
+              <small>Password must be at least 12 characters.</small>
           </label>
           <button className="primary-button full-span" type="submit" disabled={submitting}>
             {submitting ? 'Signing in…' : 'Sign in'}

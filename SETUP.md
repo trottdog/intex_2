@@ -49,9 +49,9 @@ From the **API project directory**:
 
 ```bash
 cd backend/intex/intex
-dotnet user-secrets set "Auth:Seed:SuperAdminPassword" "Lighthouse1"
-dotnet user-secrets set "Auth:Seed:StaffPassword"      "Lighthouse2"
-dotnet user-secrets set "Auth:Seed:DonorPassword"      "Lighthouse3"
+dotnet user-secrets set "Auth:Seed:SuperAdminPassword" "LighthouseAdmin01"
+dotnet user-secrets set "Auth:Seed:StaffPassword"      "LighthouseStaff01"
+dotnet user-secrets set "Auth:Seed:DonorPassword"      "LighthouseDonor01"
 ```
 
 Set these to the same values you use in the credential tables below, then restart the API once so bootstrap can align hashes if enabled.
@@ -118,7 +118,7 @@ Passwords must match **how users were created**: SQL hashes vs. `dotnet user-sec
 | Field    | Value                                |
 |----------|--------------------------------------|
 | Email    | `julie.hernando@lighthouse.intex`    |
-| Password | `Lighthouse1`                        |
+| Password | `LighthouseAdmin01`                  |
 | Role     | SuperAdmin                           |
 
 ### Staff / Admin (2 per safehouse, up to 9 safehouses)
@@ -126,7 +126,7 @@ Passwords must match **how users were created**: SQL hashes vs. `dotnet user-sec
 | Field    | Value (example for safehouse 1, slot 1)  |
 |----------|------------------------------------------|
 | Email    | `sh01.staff1@lighthouse.intex`           |
-| Password | `Lighthouse2`                            |
+| Password | `LighthouseStaff01`                      |
 | Role     | Admin                                    |
 
 Pattern: `sh{NN}.staff{1|2}@lighthouse.intex` where NN = safehouse id zero-padded to 2 digits.
@@ -145,14 +145,14 @@ Full list of staff emails:
 | 8         | `sh08.staff1@lighthouse.intex`   | `sh08.staff2@lighthouse.intex`   |
 | 9         | `sh09.staff1@lighthouse.intex`   | `sh09.staff2@lighthouse.intex`   |
 
-All staff accounts use password: `Lighthouse2`
+All staff accounts use password: `LighthouseStaff01`
 
 ### Donors (first 20 supporters with emails)
 
 | Field    | Value                                             |
 |----------|---------------------------------------------------|
 | Email    | The supporter's email from the `supporters` table |
-| Password | `Lighthouse3`                                     |
+| Password | `LighthouseDonor01`                               |
 | Role     | Donor                                             |
 
 Username pattern: `donor_{supporterId}`
@@ -173,7 +173,7 @@ Login from the frontend requires `credentials: 'include'` on fetch calls.
 # Login as SuperAdmin
 curl -X POST http://localhost:4000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"julie.hernando@lighthouse.intex","password":"Lighthouse1"}' \
+  -d '{"email":"julie.hernando@lighthouse.intex","password":"LighthouseAdmin01"}' \
   -c cookies.txt
 
 # Check session

@@ -1,4 +1,7 @@
 using intex.Data;
+using intex.Security;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,6 +9,7 @@ namespace intex.Controllers;
 
 [ApiController]
 [Route("donations/{donationId:long}/in-kind-items")]
+[Authorize(Policy = AuthorizationPolicies.DonorOrAdmin)]
 public class InKindDonationItemsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -21,6 +25,9 @@ public class InKindDonationItemsController : ControllerBase
         long donationId,
         CancellationToken cancellationToken)
     {
+        if (!await CanAccessDonationAsync(donationId, cancellationToken))
+            return IsAdminUser() ? NotFound() : Forbid();
+
         var rows = await _db.InKindDonationItems
             .AsNoTracking()
             .Where(x => x.DonationId == donationId)
@@ -46,6 +53,9 @@ public class InKindDonationItemsController : ControllerBase
         long itemId,
         CancellationToken cancellationToken)
     {
+        if (!await CanAccessDonationAsync(donationId, cancellationToken))
+            return IsAdminUser() ? NotFound() : Forbid();
+
         var row = await _db.InKindDonationItems
             .AsNoTracking()
             .Where(x => x.DonationId == donationId && x.ItemId == itemId)
@@ -65,6 +75,35 @@ public class InKindDonationItemsController : ControllerBase
             return NotFound();
 
         return Ok(row);
+    }
+
+    private bool IsAdminUser() =>
+        User.IsInRole(IntexRoles.Admin) || User.IsInRole(IntexRoles.SuperAdmin);
+
+    private async Task<bool> CanAccessDonationAsync(long donationId, CancellationToken cancellationToken)
+    {
+        if (IsAdminUser())
+        {
+            return await _db.Donations.AsNoTracking().AnyAsync(d => d.DonationId == donationId, cancellationToken);
+        }
+
+        if (!User.IsInRole(IntexRoles.Donor))
+            return false;
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
+
+        var supporterId = await _db.Supporters.AsNoTracking()
+            .Where(s => s.IdentityUserId == userId)
+            .Select(s => (long?)s.SupporterId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!supporterId.HasValue)
+            return false;
+
+        return await _db.Donations.AsNoTracking()
+            .AnyAsync(d => d.DonationId == donationId && d.SupporterId == supporterId.Value, cancellationToken);
     }
 }
 

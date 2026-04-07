@@ -1,6 +1,8 @@
 using System.Text.Json;
 using intex.Data;
 using intex.Data.Entities;
+using intex.Security;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +12,7 @@ namespace intex.Controllers;
 
 [ApiController]
 [Route("ml")]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.DonorOrAdmin)]
 public class MlInsightsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -97,6 +99,7 @@ public class MlInsightsController : ControllerBase
     }
 
     [HttpGet("residents/{residentId:long}/insights")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> GetResidentInsights(long residentId, CancellationToken ct)
     {
         var pipelineNames = new[] { "resident_risk", "reintegration_readiness" };
@@ -107,8 +110,34 @@ public class MlInsightsController : ControllerBase
     [HttpGet("supporters/{supporterId:long}/insights")]
     public async Task<IActionResult> GetSupporterInsights(long supporterId, CancellationToken ct)
     {
+        if (!IsAdminUser())
+        {
+            if (!User.IsInRole(IntexRoles.Donor))
+                return Forbid();
+
+            var currentSupporterId = await GetCurrentSupporterIdAsync(ct);
+            if (!currentSupporterId.HasValue || currentSupporterId.Value != supporterId)
+                return Forbid();
+        }
+
         var payload = await GetEntityInsights(new[] { "donor_retention" }, supporterId, ct);
         return Ok(payload);
+    }
+
+    private bool IsAdminUser() =>
+        User.IsInRole(IntexRoles.Admin) || User.IsInRole(IntexRoles.SuperAdmin);
+
+    private async Task<long?> GetCurrentSupporterIdAsync(CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+            return null;
+
+        return await _db.Supporters
+            .AsNoTracking()
+            .Where(s => s.IdentityUserId == userId)
+            .Select(s => (long?)s.SupporterId)
+            .FirstOrDefaultAsync(ct);
     }
 
     private async Task<IReadOnlyList<object>> GetEntityInsights(IEnumerable<string> pipelineNames, long entityId, CancellationToken ct)
