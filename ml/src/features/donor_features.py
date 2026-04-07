@@ -135,6 +135,145 @@ def build_supporter_features(
     return supporter_features.sort_values("supporter_id").reset_index(drop=True)
 
 
+def build_supporter_monthly_features(
+    tables: Mapping[str, pd.DataFrame] | None = None,
+) -> pd.DataFrame:
+    """Build supporter-month snapshots with future-window donor-growth labels."""
+
+    data = load_raw_tables() if tables is None else dict(tables)
+
+    supporters = data["supporters"].copy()
+    donations = data["donations"].copy()
+    donations["resolved_value"] = donations["estimated_value"].fillna(donations["amount"]).fillna(0.0)
+    donations["is_recurring"] = donations["is_recurring"].fillna(False).astype(bool)
+
+    max_donation_date = donations["donation_date"].max()
+    prediction_horizon_days = 180
+    prediction_horizon = pd.Timedelta(days=prediction_horizon_days)
+    observation_cutoff_month = (max_donation_date - prediction_horizon).to_period("M").to_timestamp()
+
+    rows: list[dict[str, object]] = []
+
+    for supporter in supporters.itertuples(index=False):
+        supporter_id = supporter.supporter_id
+        supporter_donations = donations.loc[donations["supporter_id"] == supporter_id].copy()
+        if supporter_donations.empty:
+            continue
+
+        first_donation_date = pd.Timestamp(supporter_donations["donation_date"].min())
+        start_month = first_donation_date.to_period("M").to_timestamp()
+        end_month = max_donation_date.to_period("M").to_timestamp()
+
+        for snapshot_month in pd.date_range(start=start_month, end=end_month, freq="MS"):
+            snapshot_date = snapshot_month + pd.offsets.MonthEnd(0)
+            past = supporter_donations.loc[supporter_donations["donation_date"] <= snapshot_date].copy()
+            if past.empty:
+                continue
+
+            future = supporter_donations.loc[
+                (supporter_donations["donation_date"] > snapshot_date)
+                & (supporter_donations["donation_date"] <= snapshot_date + prediction_horizon)
+            ].copy()
+            trailing_90d = past.loc[past["donation_date"] > snapshot_date - pd.Timedelta(days=90)].copy()
+            trailing_180d = past.loc[past["donation_date"] > snapshot_date - prediction_horizon].copy()
+            trailing_365d = past.loc[
+                past["donation_date"] > snapshot_date - pd.Timedelta(days=365)
+            ].copy()
+            future_monetary = future.loc[future["amount"].notna()].sort_values("donation_date").copy()
+
+            donation_count_lifetime = int(len(past))
+            recurring_count_lifetime = int(past["is_recurring"].sum())
+            trailing_365d_total = float(trailing_365d["resolved_value"].sum())
+            future_180d_total = float(future["resolved_value"].sum())
+            next_monetary_amount = (
+                float(future_monetary.iloc[0]["amount"]) if not future_monetary.empty else pd.NA
+            )
+            avg_monetary_amount_lifetime = past["amount"].dropna().mean()
+            trailing_365d_avg_monetary_amount = trailing_365d["amount"].dropna().mean()
+
+            first_past_donation = pd.Timestamp(past["donation_date"].min())
+            last_past_donation = pd.Timestamp(past["donation_date"].max())
+            active_days = max((last_past_donation - first_past_donation).days, 0)
+
+            rows.append(
+                {
+                    "supporter_id": supporter_id,
+                    "snapshot_month": snapshot_month,
+                    "created_at": supporter.created_at,
+                    "supporter_type": supporter.supporter_type,
+                    "relationship_type": supporter.relationship_type,
+                    "region": supporter.region,
+                    "country": supporter.country,
+                    "status": supporter.status,
+                    "acquisition_channel": supporter.acquisition_channel,
+                    "donation_count_lifetime": donation_count_lifetime,
+                    "monetary_donation_count_lifetime": int(past["amount"].notna().sum()),
+                    "non_monetary_donation_count_lifetime": int(past["amount"].isna().sum()),
+                    "recurring_donation_count_lifetime": recurring_count_lifetime,
+                    "total_monetary_amount_lifetime": float(past["amount"].fillna(0.0).sum()),
+                    "total_resolved_value_lifetime": float(past["resolved_value"].sum()),
+                    "avg_monetary_amount_lifetime": float(
+                        avg_monetary_amount_lifetime if pd.notna(avg_monetary_amount_lifetime) else 0.0
+                    ),
+                    "donation_active_days_lifetime": active_days,
+                    "donation_frequency_per_365d_lifetime": float(
+                        safe_divide_series(
+                            pd.Series([donation_count_lifetime * 365], dtype=float),
+                            pd.Series([max(active_days, 1)], dtype=float),
+                        ).iloc[0]
+                    ),
+                    "donation_recency_days": int((snapshot_date - last_past_donation).days),
+                    "campaign_count_lifetime": int(past["campaign_name"].nunique()),
+                    "channel_diversity_lifetime": int(past["channel_source"].nunique()),
+                    "donation_type_diversity_lifetime": int(past["donation_type"].nunique()),
+                    "social_referral_donation_count_lifetime": int(
+                        past["referral_post_id"].notna().sum()
+                    ),
+                    "trailing_90d_donation_count": int(len(trailing_90d)),
+                    "trailing_180d_donation_count": int(len(trailing_180d)),
+                    "trailing_365d_donation_count": int(len(trailing_365d)),
+                    "trailing_90d_total_resolved_value": float(trailing_90d["resolved_value"].sum()),
+                    "trailing_180d_total_resolved_value": float(trailing_180d["resolved_value"].sum()),
+                    "trailing_365d_total_resolved_value": trailing_365d_total,
+                    "trailing_365d_avg_monetary_amount": float(
+                        trailing_365d_avg_monetary_amount
+                        if pd.notna(trailing_365d_avg_monetary_amount)
+                        else 0.0
+                    ),
+                    "trailing_365d_recurring_donation_count": int(trailing_365d["is_recurring"].sum()),
+                    "trailing_365d_social_referral_donation_count": int(
+                        trailing_365d["referral_post_id"].notna().sum()
+                    ),
+                    "trailing_365d_campaign_count": int(trailing_365d["campaign_name"].nunique()),
+                    "future_180d_donation_count": int(len(future)),
+                    "future_180d_recurring_donation_count": int(future["is_recurring"].sum()),
+                    "future_180d_total_resolved_value": future_180d_total,
+                    "observation_window_complete_180d": bool(snapshot_month <= observation_cutoff_month),
+                    "label_donor_upgrade_next_180d": bool(
+                        trailing_365d_total > 0 and future_180d_total > trailing_365d_total
+                    ),
+                    "label_recurring_conversion_next_180d": bool(
+                        recurring_count_lifetime == 0 and int(future["is_recurring"].sum()) > 0
+                    ),
+                    "label_has_next_monetary_donation_180d": bool(not future_monetary.empty),
+                    "label_next_monetary_amount_180d": next_monetary_amount,
+                }
+            )
+
+    supporter_monthly_features = pd.DataFrame(rows).sort_values(
+        ["snapshot_month", "supporter_id"]
+    ).reset_index(drop=True)
+
+    numeric_columns = [
+        column
+        for column in supporter_monthly_features.select_dtypes(include=["number"]).columns
+        if column != "label_next_monetary_amount_180d"
+    ]
+    supporter_monthly_features[numeric_columns] = supporter_monthly_features[numeric_columns].fillna(0)
+
+    return supporter_monthly_features
+
+
 def build_campaign_features(
     tables: Mapping[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:

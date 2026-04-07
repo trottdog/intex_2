@@ -9,6 +9,7 @@ import pandas as pd
 
 DATASET_SOURCE_MAP: dict[str, str] = {
     "supporter_features": "supporters, donations, donation_allocations, in_kind_donation_items",
+    "supporter_monthly_features": "supporters, donations",
     "campaign_features": "donations, donation_allocations, social_media_posts",
     "post_features": "social_media_posts",
     "resident_features": "residents, safehouses, process_recordings, home_visitations, intervention_plans, incident_reports, education_records, health_wellbeing_records",

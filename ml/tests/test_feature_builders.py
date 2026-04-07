@@ -1,5 +1,9 @@
 from ml.src.data.loaders import load_raw_tables
-from ml.src.features.donor_features import build_campaign_features, build_supporter_features
+from ml.src.features.donor_features import (
+    build_campaign_features,
+    build_supporter_features,
+    build_supporter_monthly_features,
+)
 from ml.src.features.resident_features import (
     build_resident_features,
     build_resident_monthly_features,
@@ -13,6 +17,18 @@ def test_supporter_features_include_expected_labels() -> None:
     assert len(supporter_features) == 60
     assert int(supporter_features["has_any_donation"].sum()) == 59
     assert int(supporter_features["label_lapsed_180d"].sum()) == 21
+
+
+def test_supporter_monthly_features_include_phase_c_labels() -> None:
+    supporter_monthly = build_supporter_monthly_features(load_raw_tables())
+
+    assert len(supporter_monthly) >= 1500
+    assert "label_donor_upgrade_next_180d" in supporter_monthly.columns
+    assert "label_recurring_conversion_next_180d" in supporter_monthly.columns
+    assert "label_next_monetary_amount_180d" in supporter_monthly.columns
+    assert int(supporter_monthly["label_donor_upgrade_next_180d"].sum()) > 0
+    assert int(supporter_monthly["label_recurring_conversion_next_180d"].sum()) == 0
+    assert int(supporter_monthly["label_has_next_monetary_donation_180d"].sum()) > 0
 
 
 def test_campaign_and_post_features_build_expected_shapes() -> None:

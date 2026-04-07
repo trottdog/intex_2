@@ -313,6 +313,13 @@ summarize_frame(dataset)
 4. Close with recommendations the application can actually surface.
 """
         ),
+        markdown_cell(
+            """
+## Evidence Review
+
+Use the nearest predictive artifact only when it genuinely clarifies the analysis. Keep the explanatory notebook focused on evidence the user can act on, not on repeating a model leaderboard.
+"""
+        ),
         code_cell(
             f"""
 evaluation = load_evaluation_bundle({evaluation_reference!r})

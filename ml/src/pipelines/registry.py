@@ -14,6 +14,34 @@ NOTEBOOKS_ROOT = ML_ROOT / "ml-pipelines"
 APP_INTEGRATION_ROOT = ML_ROOT / "app-integration"
 
 PREDICTIVE_PIPELINES: dict[str, dict[str, object]] = {
+    "best_posting_time": {
+        "display_name": "Best Posting Time",
+        "slug": "best-posting-time",
+        "train_module": "ml.src.pipelines.best_posting_time.train_predictive",
+        "build_module": "ml.src.pipelines.best_posting_time.build_dataset",
+        "id_columns": ["post_id"],
+        "shared_dataset": "post_features",
+        "business_question": "When should the team post to maximize donation-linked outcomes?",
+        "recommended_widgets": [
+            "recommendation_panel",
+            "insight_summary_card",
+            "ranked_table_widget",
+        ],
+    },
+    "donor_upgrade": {
+        "display_name": "Donor Upgrade",
+        "slug": "donor-upgrade",
+        "train_module": "ml.src.pipelines.donor_upgrade.train_predictive",
+        "build_module": "ml.src.pipelines.donor_upgrade.build_dataset",
+        "id_columns": ["supporter_id"],
+        "shared_dataset": "supporter_monthly_features",
+        "business_question": "Which current donors are most likely to increase their giving in the next 180 days?",
+        "recommended_widgets": [
+            "ranked_table_widget",
+            "insight_summary_card",
+            "recommendation_panel",
+        ],
+    },
     "donor_retention": {
         "display_name": "Donor Retention",
         "slug": "donor-retention",
@@ -56,6 +84,20 @@ PREDICTIVE_PIPELINES: dict[str, dict[str, object]] = {
             "explanation_chart_card",
         ],
     },
+    "next_donation_amount": {
+        "display_name": "Next Donation Amount",
+        "slug": "next-donation-amount",
+        "train_module": "ml.src.pipelines.next_donation_amount.train_predictive",
+        "build_module": "ml.src.pipelines.next_donation_amount.build_dataset",
+        "id_columns": ["supporter_id"],
+        "shared_dataset": "supporter_monthly_features",
+        "business_question": "How much is a donor likely to give next within the next 180 days?",
+        "recommended_widgets": [
+            "insight_summary_card",
+            "ranked_table_widget",
+            "recommendation_panel",
+        ],
+    },
     "social_media_conversion": {
         "display_name": "Social Media Conversion",
         "slug": "social-media-conversion",
@@ -73,6 +115,76 @@ PREDICTIVE_PIPELINES: dict[str, dict[str, object]] = {
 }
 
 NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
+    "best_posting_time": {
+        "display_name": "Best Posting Time",
+        "slug": "best-posting-time",
+        "predictive_impl": "best_posting_time",
+        "dataset_name": "post_features",
+        "predictive_question": "When should the organization post to maximize donation-linked results?",
+        "explanatory_question": "Which timing windows and scheduling patterns align with stronger donation-linked post performance?",
+        "decision_support": "Choose posting windows and scheduling patterns that improve donation-linked post performance.",
+        "primary_users": ["outreach managers", "social media staff"],
+        "target_summary": "Current predictive label: `label_donation_referral_positive`, using timing-focused post features.",
+        "deployment_notes": [
+            "Use a recommendation panel that highlights the strongest posting windows by platform.",
+            "Show ranked time slots alongside a short evidence summary rather than a raw probability alone.",
+        ],
+    },
+    "content_type_effectiveness": {
+        "display_name": "Content Type Effectiveness",
+        "slug": "content-type-effectiveness",
+        "predictive_impl": None,
+        "dataset_name": "post_features",
+        "predictive_question": "Which content patterns are most likely to generate meaningful donation-linked outcomes?",
+        "explanatory_question": "Which content types create fundraising value instead of vanity engagement?",
+        "decision_support": "Shape future content calendars around donation-linked value, not just engagement volume.",
+        "primary_users": ["outreach managers", "fundraising leadership"],
+        "target_summary": "Explanation-first pipeline using donation-linked post outcomes already present in `post_features`.",
+        "recommended_widgets": [
+            "explanation_chart_card",
+            "insight_summary_card",
+            "recommendation_panel",
+        ],
+        "deployment_notes": [
+            "Use explanation cards to compare content topics, media types, and CTA patterns.",
+            "Keep this pipeline narrative-first until the team wants an interactive planning surface.",
+        ],
+    },
+    "donation_channel_effectiveness": {
+        "display_name": "Donation Channel Effectiveness",
+        "slug": "donation-channel-effectiveness",
+        "predictive_impl": None,
+        "dataset_name": "campaign_features",
+        "predictive_question": "Which channels create the most valuable long-term donor outcomes?",
+        "explanatory_question": "Which acquisition and donation channels appear to create the strongest long-term donor value?",
+        "decision_support": "Help fundraising leadership invest in the channels that create better donor value over time.",
+        "primary_users": ["fundraising leadership", "campaign managers"],
+        "target_summary": "Explanation-first pipeline using campaign and supporter aggregates rather than a new supervised label.",
+        "recommended_widgets": [
+            "explanation_chart_card",
+            "insight_summary_card",
+            "recommendation_panel",
+        ],
+        "deployment_notes": [
+            "Present a channel comparison chart and short recommendation panel in campaign review flows.",
+            "Frame the result as channel guidance, not as an individual donor prediction.",
+        ],
+    },
+    "donor_upgrade": {
+        "display_name": "Donor Upgrade",
+        "slug": "donor-upgrade",
+        "predictive_impl": "donor_upgrade",
+        "dataset_name": "supporter_monthly_features",
+        "predictive_question": "Which current donors are most likely to increase their giving in the next 180 days?",
+        "explanatory_question": "Which donor history patterns most explain likely giving upgrades?",
+        "decision_support": "Prioritize fundraiser outreach toward donors with the strongest upgrade signal.",
+        "primary_users": ["fundraisers", "development leadership"],
+        "target_summary": "Current predictive label: `label_donor_upgrade_next_180d` from supporter-month snapshots.",
+        "deployment_notes": [
+            "Use ranked donor lists in fundraiser planning views and donor profile cards.",
+            "Pair the upgrade score with a recommendation panel describing why the donor is a strong ask candidate.",
+        ],
+    },
     "donor_retention": {
         "display_name": "Donor Retention",
         "slug": "donor-retention",
@@ -153,6 +265,40 @@ NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
             "Publish a short recommendation panel rather than an individual donor score.",
         ],
     },
+    "next_donation_amount": {
+        "display_name": "Next Donation Amount",
+        "slug": "next-donation-amount",
+        "predictive_impl": "next_donation_amount",
+        "dataset_name": "supporter_monthly_features",
+        "predictive_question": "How much is a donor likely to give next within the next 180 days?",
+        "explanatory_question": "Which donor patterns most explain expected next-gift size?",
+        "decision_support": "Support donor prioritization and planning with an expected next-gift value estimate.",
+        "primary_users": ["fundraisers", "development leadership"],
+        "target_summary": "Current regression target: `label_next_monetary_amount_180d` from supporter-month snapshots with a future monetary donation.",
+        "deployment_notes": [
+            "Show an expected-gift card on donor detail pages and fundraiser planning tables.",
+            "Pair the amount estimate with an explanation summary so staff understand the main drivers.",
+        ],
+    },
+    "recurring_donor_conversion": {
+        "display_name": "Recurring Donor Conversion",
+        "slug": "recurring-donor-conversion",
+        "predictive_impl": None,
+        "dataset_name": "supporter_monthly_features",
+        "predictive_question": "Which one-time donors are most likely to become recurring donors?",
+        "explanatory_question": "What donor patterns would matter most if the team later captures a strong recurring-conversion target?",
+        "decision_support": "Document the recurring-conversion concept and current data gap without forcing a weak predictive model.",
+        "primary_users": ["fundraisers", "development leadership"],
+        "target_summary": "Current data issue: recurring donations begin on first donation for the few recurring supporters, so a future conversion label is effectively absent in the available data.",
+        "recommended_widgets": [
+            "insight_summary_card",
+            "recommendation_panel",
+        ],
+        "deployment_notes": [
+            "Keep this as a notebook-only research track until the source data captures real recurring-conversion transitions.",
+            "Use the notebook to document the target gap and propose what additional event history would unlock the model.",
+        ],
+    },
     "safehouse_outcomes": {
         "display_name": "Safehouse Outcomes",
         "slug": "safehouse-outcomes",
@@ -177,7 +323,7 @@ NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
 
 
 def list_predictive_pipelines() -> list[str]:
-    """Return the predictive pipelines implemented in Phase 3."""
+    """Return all registered predictive pipelines."""
 
     return sorted(PREDICTIVE_PIPELINES)
 
