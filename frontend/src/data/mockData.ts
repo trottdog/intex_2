@@ -46,10 +46,28 @@ export type Resident = {
   safehouseId: number
   caseStatus: string
   caseCategory: string
+  caseSubCategory?: string
   presentAge: string
   assignedSocialWorker: string
   currentRiskLevel: string
   reintegrationStatus: string
+  /** Demographics */
+  gender?: string
+  nationality?: string
+  religion?: string
+  /** Disability */
+  hasDisability?: boolean
+  disabilityDetails?: string
+  /** Family socio-demographic profile */
+  is4PsBeneficiary?: boolean
+  isSoloParent?: boolean
+  isIndigenousGroup?: boolean
+  isInformalSettler?: boolean
+  /** Admission details */
+  admissionDate?: string
+  admissionType?: string
+  referralSource?: string
+  referralAgency?: string
 }
 
 export type ResidentActivity = {
@@ -59,6 +77,22 @@ export type ResidentActivity = {
   date: string
   summary: string
   status?: string
+  /** Process recording fields */
+  socialWorker?: string
+  sessionType?: 'Individual' | 'Group'
+  emotionalState?: string
+  interventions?: string
+  followUpActions?: string
+  /** Home visitation fields */
+  visitType?: string
+  homeEnvironment?: string
+  familyCooperation?: string
+  safetyConcerns?: string
+  /** Case conference fields */
+  conferenceType?: string
+  attendees?: string
+  decisions?: string
+  nextConferenceDate?: string
 }
 
 export type Safehouse = {
@@ -222,10 +256,23 @@ export const mockResidents: Resident[] = [
     safehouseId: 1,
     caseStatus: 'Active',
     caseCategory: 'Trafficked',
+    caseSubCategory: 'Sexual exploitation',
     presentAge: '15',
     assignedSocialWorker: 'Janelle Rivera',
     currentRiskLevel: 'High',
     reintegrationStatus: 'Stabilizing',
+    gender: 'Female',
+    nationality: 'Filipino',
+    religion: 'Roman Catholic',
+    hasDisability: false,
+    is4PsBeneficiary: true,
+    isSoloParent: false,
+    isIndigenousGroup: false,
+    isInformalSettler: true,
+    admissionDate: '2026-01-14',
+    admissionType: 'Referral from DSWD',
+    referralSource: 'Local police rescue operation',
+    referralAgency: 'DSWD Region VII',
   },
   {
     residentId: 202,
@@ -233,21 +280,48 @@ export const mockResidents: Resident[] = [
     safehouseId: 1,
     caseStatus: 'Active',
     caseCategory: 'Physical abuse',
+    caseSubCategory: 'Domestic violence — child victim',
     presentAge: '14',
     assignedSocialWorker: 'Janelle Rivera',
     currentRiskLevel: 'Moderate',
     reintegrationStatus: 'In progress',
+    gender: 'Female',
+    nationality: 'Filipino',
+    religion: 'Evangelical Christian',
+    hasDisability: true,
+    disabilityDetails: 'Mild hearing impairment — sign language support provided',
+    is4PsBeneficiary: false,
+    isSoloParent: true,
+    isIndigenousGroup: false,
+    isInformalSettler: false,
+    admissionDate: '2026-02-03',
+    admissionType: 'Walk-in with guardian',
+    referralSource: 'Barangay council report',
+    referralAgency: 'DSWD Region VII',
   },
   {
     residentId: 203,
     caseControlNo: 'LC-2026-003',
     safehouseId: 2,
     caseStatus: 'Reintegration',
-    caseCategory: 'At risk',
+    caseCategory: 'Neglected',
+    caseSubCategory: 'Child abandonment',
     presentAge: '16',
     assignedSocialWorker: 'Sofia Delgado',
     currentRiskLevel: 'Low',
     reintegrationStatus: 'Near readiness',
+    gender: 'Female',
+    nationality: 'Filipino',
+    religion: 'Roman Catholic',
+    hasDisability: false,
+    is4PsBeneficiary: true,
+    isSoloParent: false,
+    isIndigenousGroup: true,
+    isInformalSettler: false,
+    admissionDate: '2025-11-20',
+    admissionType: 'Referral from DSWD',
+    referralSource: 'Inter-agency rescue team',
+    referralAgency: 'DSWD Region XI',
   },
 ]
 
@@ -257,7 +331,12 @@ export const mockProcessRecordings: ResidentActivity[] = [
     residentId: 201,
     title: 'Individual processing session',
     date: '2026-04-02',
-    summary: 'Resident identified new safety triggers and practiced grounding exercises.',
+    summary: 'Resident identified new safety triggers and practiced grounding exercises with the social worker.',
+    socialWorker: 'Maria Santos',
+    sessionType: 'Individual',
+    emotionalState: 'Anxious but engaged',
+    interventions: 'Grounding techniques (5-4-3-2-1), safety trigger mapping, breathing exercises',
+    followUpActions: 'Revisit safety plan next session; coordinate with house parent on bedtime routine',
     status: 'Follow up needed',
   },
   {
@@ -265,7 +344,25 @@ export const mockProcessRecordings: ResidentActivity[] = [
     residentId: 201,
     title: 'Group resilience session',
     date: '2026-03-25',
-    summary: 'Resident participated consistently and reported better sleep this week.',
+    summary: 'Resident participated consistently and reported better sleep this week. Group dynamics positive.',
+    socialWorker: 'Maria Santos',
+    sessionType: 'Group',
+    emotionalState: 'Calm and participatory',
+    interventions: 'Peer storytelling, trust-building activities, group affirmations',
+    followUpActions: 'Continue group attendance; note sleep improvement in next individual session',
+  },
+  {
+    id: 3,
+    residentId: 202,
+    title: 'Individual trauma-focused session',
+    date: '2026-04-01',
+    summary: 'Initial disclosure processing. Resident expressed significant distress but remained grounded.',
+    socialWorker: 'Ana Reyes',
+    sessionType: 'Individual',
+    emotionalState: 'Distressed but cooperative',
+    interventions: 'Active listening, safety affirmation, crisis stabilization protocol',
+    followUpActions: 'Daily check-ins for one week; refer to medical for sleep evaluation',
+    status: 'Follow up needed',
   },
 ]
 
@@ -275,8 +372,38 @@ export const mockHomeVisitations: ResidentActivity[] = [
     residentId: 201,
     title: 'Routine follow-up visit',
     date: '2026-03-30',
-    summary: 'Family cooperation improved. Safety concerns remain around neighborhood access.',
+    summary: 'Family cooperation improved since last visit. Neighborhood access remains a safety concern.',
+    visitType: 'Routine follow-up',
+    homeEnvironment: 'Clean and adequately provisioned. Living space suitable for reintegration.',
+    familyCooperation: 'High — parents attended meeting and engaged with the reintegration plan.',
+    safetyConcerns: 'Unmonitored access to neighborhood near known trafficking area; recommend curfew plan.',
+    followUpActions: 'Coordinate with DSWD on neighborhood safety assessment; schedule next visit in 3 weeks.',
     status: 'Schedule next visit',
+  },
+  {
+    id: 12,
+    residentId: 201,
+    title: 'Initial assessment visit',
+    date: '2026-02-14',
+    summary: 'First visit to family home. Basic safety standards met. Family expressed willingness to cooperate.',
+    visitType: 'Initial assessment',
+    homeEnvironment: 'Adequate but crowded. Some repairs needed to bedroom area.',
+    familyCooperation: 'Moderate — one parent guarded, other cooperative.',
+    safetyConcerns: 'No immediate threats identified. Note one family member with unknown relationship to case.',
+    followUpActions: 'Request background check on household members; schedule follow-up in 6 weeks.',
+  },
+  {
+    id: 13,
+    residentId: 202,
+    title: 'Reintegration assessment visit',
+    date: '2026-03-28',
+    summary: 'Pre-reintegration check. Family ready; home environment meets safety standards.',
+    visitType: 'Reintegration assessment',
+    homeEnvironment: 'Well maintained. Dedicated room for the resident. Stable income noted.',
+    familyCooperation: 'High — family attended all training sessions and signed safety agreement.',
+    safetyConcerns: 'None identified at this time.',
+    followUpActions: 'Finalize DSWD placement paperwork; schedule post-placement monitoring at 30 days.',
+    status: 'Awaiting DSWD clearance',
   },
 ]
 
@@ -284,17 +411,36 @@ export const mockCaseConferences: ResidentActivity[] = [
   {
     id: 21,
     residentId: 201,
-    title: 'Upcoming case conference',
+    title: 'Quarterly case conference',
     date: '2026-04-12',
-    summary: 'Review school readiness, placement supports, and family preparedness.',
+    summary: 'Review school readiness, placement supports, and family preparedness ahead of potential reintegration.',
+    conferenceType: 'Quarterly review',
+    attendees: 'Maria Santos (SW), House parent, DSWD representative, School liaison',
+    decisions: 'Pending — conference not yet held.',
+    nextConferenceDate: '2026-07-12',
     status: 'Upcoming',
   },
   {
     id: 22,
     residentId: 201,
-    title: 'Case conference summary',
+    title: 'Stabilization case conference',
     date: '2026-03-10',
     summary: 'Team aligned on a two-week stabilization plan and mentorship support.',
+    conferenceType: 'Stabilization review',
+    attendees: 'Maria Santos (SW), Counselor, House parent, Medical officer',
+    decisions: 'Approved two-week stabilization plan; added peer mentorship pairing; daily social worker check-ins.',
+    nextConferenceDate: '2026-04-12',
+  },
+  {
+    id: 23,
+    residentId: 202,
+    title: 'Reintegration planning conference',
+    date: '2026-04-03',
+    summary: 'Confirmed family readiness. Reintegration timeline set for late April.',
+    conferenceType: 'Reintegration planning',
+    attendees: 'Ana Reyes (SW), DSWD officer, Family representative, Counselor',
+    decisions: 'Approved reintegration plan. Post-placement monitoring at 30 and 90 days. Family training completed.',
+    nextConferenceDate: '2026-05-03',
   },
 ]
 

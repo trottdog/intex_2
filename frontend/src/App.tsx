@@ -129,10 +129,48 @@ function formatDonationTypeLabel(raw: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase()
 }
 
+function CookieConsentBanner() {
+  const [visible, setVisible] = useState(() => {
+    try { return !localStorage.getItem('beacon.cookieConsent') } catch { return true }
+  })
+  const [analyticsOn, setAnalyticsOn] = useState(false)
+
+  if (!visible) return null
+
+  const accept = (analytics: boolean) => {
+    try {
+      localStorage.setItem('beacon.cookieConsent', analytics ? 'all' : 'necessary')
+    } catch { /* private browsing */ }
+    setVisible(false)
+  }
+
+  return (
+    <div className="cookie-banner" role="dialog" aria-label="Cookie consent">
+      <div className="cookie-banner-body">
+        <p>
+          <strong>We use cookies.</strong> Necessary cookies keep the site secure and your session active.
+          With your consent, we also use analytics cookies to understand how visitors use Beacon's platform.{' '}
+          <AppLink to="/privacy" className="cookie-banner-link">Privacy policy</AppLink> ·{' '}
+          <AppLink to="/cookies" className="cookie-banner-link">Cookie settings</AppLink>
+        </p>
+        <div className="cookie-banner-actions">
+          <label className="cookie-analytics-label">
+            <input type="checkbox" checked={analyticsOn} onChange={(e) => setAnalyticsOn(e.target.checked)} />
+            Analytics
+          </label>
+          <button className="cookie-btn-secondary" onClick={() => accept(false)}>Necessary only</button>
+          <button className="cookie-btn-primary" onClick={() => accept(analyticsOn)}>Accept</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   return (
     <SessionProvider>
       <IntexApp />
+      <CookieConsentBanner />
     </SessionProvider>
   )
 }
@@ -266,33 +304,15 @@ function resolveRoute(pathname: string, role: UserRole) {
   const residentSections = [
     {
       pattern: '/app/admin/residents/:residentId/process-recordings',
-      render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Process recordings',
-          'Counseling history and structured note capture.',
-          mockProcessRecordings,
-        ),
+      render: (residentId: number) => <ProcessRecordingsPage residentId={residentId} />,
     },
     {
       pattern: '/app/admin/residents/:residentId/home-visitations',
-      render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Home visitations',
-          'Visit history, follow-ups, and safety observations.',
-          mockHomeVisitations,
-        ),
+      render: (residentId: number) => <HomeVisitationsPage residentId={residentId} />,
     },
     {
       pattern: '/app/admin/residents/:residentId/case-conferences',
-      render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Case conferences',
-          'Upcoming and historical case conference review.',
-          mockCaseConferences,
-        ),
+      render: (residentId: number) => <CaseConferencesPage residentId={residentId} />,
     },
     {
       pattern: '/app/admin/residents/:residentId/education-records',
@@ -393,6 +413,7 @@ function resolveRoute(pathname: string, role: UserRole) {
     { path: '/impact', kind: 'public', render: () => <ImpactPage /> },
     { path: '/programs', kind: 'public', render: () => <ProgramsPage /> },
     { path: '/about', kind: 'public', render: () => <AboutPage /> },
+    { path: '/social', kind: 'public', render: () => <SocialPage /> },
     { path: '/donate', kind: 'public', render: () => <DonatePage /> },
     { path: '/login', kind: 'public', render: () => <LoginPage /> },
     { path: '/privacy', kind: 'public', render: () => <PrivacyPage /> },
@@ -468,6 +489,7 @@ function PublicLayout({
     ['/impact', 'Impact'],
     ['/programs', 'Programs'],
     ['/about', 'About'],
+    ['/social', 'Social'],
     ['/donate', 'Donate'],
     ['/login', 'Login'],
   ] as const
@@ -719,6 +741,56 @@ function HomePage() {
         </div>
       </section>
 
+      <section className="what-we-do-section">
+        <div className="what-we-do-header">
+          <span className="what-we-do-eyebrow">What we do</span>
+          <h2>Provide Safety, Healing, And Empowerment</h2>
+        </div>
+        <div className="what-we-do-grid">
+          <div className="what-we-do-card">
+            <div className="wwd-icon-wrap wwd-icon-safety">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <h3>Safety</h3>
+            <p>Safety is the number one focus of Beacon since it is the first step of healing. Every child who enters our home deserves to feel protected and free from fear.</p>
+          </div>
+          <div className="what-we-do-card">
+            <div className="wwd-icon-wrap wwd-icon-healing">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/>
+                <path d="M12 8v4l3 3"/>
+              </svg>
+            </div>
+            <h3>Healing</h3>
+            <p>Once a child trusts that they are safe, the healing process can begin. Through counseling, medical care, and community, Beacon walks alongside each child at their own pace.</p>
+          </div>
+          <div className="what-we-do-card">
+            <div className="wwd-icon-wrap wwd-icon-justice">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3l1.5 4.5H18l-3.75 2.7 1.5 4.8L12 12.3l-3.75 2.7 1.5-4.8L6 7.5h4.5z"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+              </svg>
+            </div>
+            <h3>Justice</h3>
+            <p>Beacon does not encourage or discourage children from filing cases — we support each child in pursuing what justice means to them, on their terms and timeline.</p>
+          </div>
+          <div className="what-we-do-card">
+            <div className="wwd-icon-wrap wwd-icon-empowerment">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="7" r="4"/>
+                <path d="M5.5 21a7 7 0 0 1 13 0"/>
+                <line x1="12" y1="14" x2="12" y2="11"/>
+              </svg>
+            </div>
+            <h3>Empowerment</h3>
+            <p>Our goal is to help children move from a mindset of victimhood into one of leadership and advocacy — equipped to shape their own futures with confidence.</p>
+          </div>
+        </div>
+      </section>
+
       <section className="feature-band feature-band-visual">
         <div className="feature-tile">
           <div className="feature-tile-visual">
@@ -746,13 +818,6 @@ function HomePage() {
         </div>
       </section>
 
-      <section className="home-photo-strip" aria-label="Community moments">
-        {siteImages.gallery.map((src) => (
-          <div key={src} className="home-photo-strip-item">
-            <img src={src} alt="" />
-          </div>
-        ))}
-      </section>
     </div>
   )
 }
@@ -881,27 +946,87 @@ function AboutPage() {
   return (
     <div className="public-page">
       <section className="page-hero compact">
-        <span className="eyebrow">About</span>
-        <h1>Build a system that feels worthy of the mission.</h1>
-        <p>The product experience should communicate credibility, restraint, and professional stewardship of sensitive data.</p>
+        <span className="eyebrow">About Beacon</span>
+        <h1>Safety, healing, and empowerment — one child at a time.</h1>
+        <p>Beacon provides residential care, professional rehabilitation, and family reintegration for child survivors of trafficking and abuse in the Philippines.</p>
       </section>
       <section className="feature-band">
         <div>
-          <h2>Trust</h2>
-          <p>Privacy, access control, and careful handling of sensitive resident workflows.</p>
+          <h2>Safe haven</h2>
+          <p>Two residential shelters offering safe, stable homes for female survivors ages 8 to 18.</p>
         </div>
         <div>
-          <h2>Transparency</h2>
-          <p>Public impact storytelling tied to real organizational outcomes.</p>
+          <h2>Rehabilitation</h2>
+          <p>Counseling, medical care, individualized education, and daily support for every child in our care.</p>
         </div>
         <div>
-          <h2>Decision support</h2>
-          <p>Operational dashboards and ML insights that clarify rather than distract.</p>
+          <h2>Reintegration</h2>
+          <p>Coordinating with the DSWD to reunite children with birth, foster, or adoptive families through guided transition.</p>
+        </div>
+      </section>
+      <section className="about-mission-section">
+        <div className="about-mission-image-wrap">
+          <img src={siteImages.featureMl} alt="Resident celebrating freedom on the beach" loading="lazy" />
+        </div>
+        <div className="about-mission-body">
+          <span className="about-mission-eyebrow">Get to know Us</span>
+          <blockquote className="about-mission-quote">
+            Beacon is a 501c3 organization created to meet the needs of children-survivors of sexual abuse
+            and sex trafficking in the Philippines by providing a safe haven and professional rehabilitation
+            services so children can successfully reintegrate back into family life and society.
+          </blockquote>
+          <p>
+            There is a great need for residential shelters in the Philippines for children who are trapped
+            in abuse or who are sexually trafficked. Beacon has stepped up to fill the need for female
+            survivors between the ages of 8 to 18.
+          </p>
+          <p>
+            Beacon operates two residential-style shelters, each caring for up to 20 children. Children
+            are rescued by the local police department or anti-trafficking agents who refer them through
+            the Department of Social Welfare and Development (DSWD). Our social workers assist each child
+            in transitioning safely into their new environment.
+          </p>
+          <p>
+            Once in the home, children receive counseling, medical services, daily needs, and an
+            individualized education. Partners of Beacon work toward justice for each child and coordinate
+            with the DSWD to find suitable families—whether birth, foster, or adoptive—providing family
+            counseling to support every transition.
+          </p>
+        </div>
+      </section>
+      <section className="testimonials-section">
+        <h2 className="testimonials-heading">In their own words</h2>
+        <p className="testimonials-lede">Hear from the young women whose lives have been changed by Beacon.</p>
+        <div className="testimonials-grid">
+          <article className="testimonial-card">
+            <div className="testimonial-quote-icon" aria-hidden="true">"</div>
+            <blockquote>
+              <p>Beacon was the light in my life during the times when I wanted to give up. It was an answered prayer for me that I could go to a safe place like Beacon Sanctuary.</p>
+              <p>One thing I love about Beacon is how we are able to love one another, be a support system, and let love prevail in our lives.</p>
+            </blockquote>
+            <cite>— Resident, age 16</cite>
+          </article>
+          <article className="testimonial-card">
+            <div className="testimonial-quote-icon" aria-hidden="true">"</div>
+            <blockquote>
+              <p>Beacon for me is a family. The staff helped me understand myself and my life circumstances. They helped me find answers to my questions and they gave me the love and attention I never had from my own family.</p>
+              <p>I will never forget the time when I was at my lowest and the Mamas and the management gave me comfort and told me that all of my sufferings had purpose. During that time I found relief and hope. I'm also grateful that we got to celebrate our birthdays there — it made us feel seen and loved.</p>
+            </blockquote>
+            <cite>— Resident, age 15</cite>
+          </article>
+          <article className="testimonial-card">
+            <div className="testimonial-quote-icon" aria-hidden="true">"</div>
+            <blockquote>
+              <p>One thing I will always remember from my stay is how we, residents, created such a beautiful connection. Sometimes we had misunderstandings or conflicts, but we learned to forgive, understand our imperfections, and most of all, love our sisters.</p>
+              <p>We built a long-term support system that checks on each other even after leaving the shelter.</p>
+            </blockquote>
+            <cite>— Resident, age 15</cite>
+          </article>
         </div>
       </section>
       <section className="directors-section">
         <h2 className="directors-heading">Leadership</h2>
-        <p className="directors-lede">People guiding Lighthouse and the INTEX platform partnership.</p>
+        <p className="directors-lede">People guiding Beacon and the INTEX platform partnership.</p>
         <div className="director-grid">
           {directorPhotos.map((person) => (
             <article key={person.src} className="director-card">
@@ -909,9 +1034,208 @@ function AboutPage() {
                 <img src={person.src} alt={person.name} loading="lazy" />
               </div>
               <h3>{person.name}</h3>
+              {person.title ? <p className="director-title">{person.title}</p> : null}
             </article>
           ))}
         </div>
+      </section>
+    </div>
+  )
+}
+
+const socialChannels = [
+  {
+    name: 'YouTube',
+    handle: '@BeaconSanctuary',
+    url: 'https://www.youtube.com/@BeaconSanctuary',
+    description: 'Watch stories of hope, program highlights, and messages from our leadership team.',
+    colorClass: 'social-card-yt',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"/>
+      </svg>
+    ),
+  },
+  {
+    name: 'Facebook',
+    handle: 'Beacon Sanctuary',
+    url: 'https://www.facebook.com/BeaconSanctuary',
+    description: 'Follow us for news, events, and community updates straight from our team.',
+    colorClass: 'social-card-fb',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/>
+      </svg>
+    ),
+  },
+  {
+    name: 'X / Twitter',
+    handle: '@BeaconSanctuary',
+    url: 'https://twitter.com/BeaconSanctuary',
+    description: 'Real-time updates, advocacy news, and conversations about child welfare and justice.',
+    colorClass: 'social-card-tw',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+      </svg>
+    ),
+  },
+  {
+    name: 'Instagram',
+    handle: '@beacon.sanctuary',
+    url: 'https://www.instagram.com/beacon.sanctuary',
+    description: 'Photos and moments from our safehouses, events, and the lives we are privileged to support.',
+    colorClass: 'social-card-ig',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
+      </svg>
+    ),
+  },
+  {
+    name: 'TikTok',
+    handle: '@beacon.sanctuary',
+    url: 'https://www.tiktok.com/@beacon.sanctuary',
+    description: 'Short videos sharing the heart of Beacon — our mission, our children\'s journeys, and our community.',
+    colorClass: 'social-card-tk',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.79 1.52V6.76a4.85 4.85 0 0 1-1.02-.07z"/>
+      </svg>
+    ),
+  },
+]
+
+const mockCarouselPosts = [
+  {
+    platform: 'Instagram',
+    handle: '@beacon.sanctuary',
+    time: '2 hours ago',
+    text: 'Today we celebrated the graduation of three of our residents from the local high school. These young women walked across that stage with courage and grace. We are so proud. 🎓 #BeaconSanctuary #HopeAndHealing',
+    likes: 312,
+    comments: 47,
+    icon: socialChannels[3].icon,
+    photo: '/images/BackwardsJump-e1741389606772.jpg',
+  },
+  {
+    platform: 'Facebook',
+    handle: 'Beacon Sanctuary',
+    time: '1 day ago',
+    text: 'Thank you to everyone who donated during our Spring Stability Campaign. Because of you, we were able to provide medical care, school supplies, and emergency housing support for 18 children this quarter. Every peso and every prayer counts.',
+    likes: 528,
+    comments: 93,
+    icon: socialChannels[1].icon,
+    photo: '/images/medical.jpg',
+  },
+  {
+    platform: 'YouTube',
+    handle: '@BeaconSanctuary',
+    time: '3 days ago',
+    text: '🎥 NEW VIDEO — "What Home Means to Me" — hear directly from our residents about what safety, healing, and belonging feel like after years of trauma. Link in bio.',
+    likes: 1104,
+    comments: 186,
+    icon: socialChannels[0].icon,
+    photo: '/images/GreenGrassFingerStar-e1741389539890.jpg',
+  },
+  {
+    platform: 'TikTok',
+    handle: '@beacon.sanctuary',
+    time: '5 days ago',
+    text: 'A day in the life at Beacon 🌅 — from morning circle time to evening study sessions, our team shows up with love every single day. Watch to see the world our children come home to. #SafeHaven #Philippines',
+    likes: 4870,
+    comments: 342,
+    icon: socialChannels[4].icon,
+    photo: '/images/BlueWhiteSpotsWStar.jpg',
+  },
+  {
+    platform: 'X / Twitter',
+    handle: '@BeaconSanctuary',
+    time: '1 week ago',
+    text: 'Child trafficking is not a distant problem. In the Philippines alone, thousands of children are at risk every year. Beacon exists to change that — one child at a time. Learn how you can help: beacon.trottdog.com/donate',
+    likes: 287,
+    comments: 54,
+    icon: socialChannels[2].icon,
+    photo: '/images/bracelets.jpeg',
+  },
+]
+
+function SocialPage() {
+  const [activeIdx, setActiveIdx] = useState(0)
+  const total = mockCarouselPosts.length
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % total)
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [total])
+
+  const post = mockCarouselPosts[activeIdx]
+
+  return (
+    <div className="public-page">
+      <section className="page-hero compact social-hero-compact">
+        <span className="eyebrow">Connect with us</span>
+        <h1>Follow Beacon across every platform.</h1>
+      </section>
+
+      {/* Auto-rotating post carousel */}
+      <section className="social-carousel-section">
+        <h2 className="social-carousel-heading">Recent posts</h2>
+        <div className="social-carousel-track" key={activeIdx}>
+          <div className="social-post-card">
+            <img className="social-post-photo" src={post.photo} alt="" loading="lazy" />
+            <div className="social-post-overlay">
+              <div className="social-post-header">
+                <span className="social-post-icon">{post.icon}</span>
+                <div>
+                  <strong>{post.handle}</strong>
+                  <span className="social-post-meta">{post.platform} · {post.time}</span>
+                </div>
+              </div>
+              <p className="social-post-text">{post.text}</p>
+              <div className="social-post-footer">
+                <span>♥ {post.likes.toLocaleString()}</span>
+                <span>💬 {post.comments}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dot indicators */}
+        <div className="social-carousel-dots">
+          {mockCarouselPosts.map((_, i) => (
+            <button
+              key={i}
+              className={`carousel-dot${i === activeIdx ? ' active' : ''}`}
+              onClick={() => setActiveIdx(i)}
+              aria-label={`Go to post ${i + 1}`}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Platform icon row */}
+      <section className="social-icons-row">
+        {socialChannels.map((ch) => (
+          <a
+            key={ch.name}
+            href={ch.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="social-icon-pill"
+            title={`${ch.name} — ${ch.handle}`}
+          >
+            <span className={`social-icon-svg ${ch.colorClass}`}>{ch.icon}</span>
+            <span className="social-icon-label">{ch.name}</span>
+          </a>
+        ))}
+      </section>
+
+      <section className="social-cta-band">
+        <h2>Help spread the word</h2>
+        <p>Every share, like, or follow connects more people to children who need support. Thank you for being part of the Beacon community.</p>
+        <AppLink to="/donate" className="primary-button">Make a difference today</AppLink>
       </section>
     </div>
   )
@@ -1293,6 +1617,13 @@ function DonorDashboardPage() {
           </p>
         </Surface>
       ) : null}
+      <div className="donor-dashboard-cta">
+        <div>
+          <h2>Ready to give again?</h2>
+          <p>Your support goes directly toward safe housing, counseling, and education for children in Beacon's care.</p>
+        </div>
+        <AppLink to="/app/donor/donate" className="primary-button">Donate now</AppLink>
+      </div>
       <div className="stat-grid">
         <StatCard label="Total gifts" value={String(donations.length)} />
         <StatCard label="Lifetime giving" value={`$${donations.reduce((sum, donation) => sum + donation.amount, 0).toLocaleString()}`} />
@@ -1478,29 +1809,38 @@ function AdminDashboardPage() {
 function CaseloadPage() {
   const { user } = useSession()
   const residents = useApiResource('/residents', mockResidents)
+  const safehouses = useApiResource('/safehouses', mockSafehouses)
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const [categoryFilter, setCategoryFilter] = useState('All')
+  const [safehouseFilter, setSafehouseFilter] = useState('All')
   const residentsScoped = useMemo(() => {
-    if (!user) {
-      return residents.data
-    }
+    if (!user) return residents.data
     return filterResidentsForSessionUser(user, residents.data)
   }, [user, residents.data])
+  const categories = Array.from(new Set(residentsScoped.map((r) => r.caseCategory)))
+  const safehouseOptions = safehouses.data.filter((s) =>
+    residentsScoped.some((r) => r.safehouseId === s.safehouseId),
+  )
   const filteredResidents = residentsScoped.filter((resident) => {
     const matchesSearch =
       resident.caseControlNo.toLowerCase().includes(search.toLowerCase()) ||
       resident.assignedSocialWorker.toLowerCase().includes(search.toLowerCase()) ||
       resident.caseCategory.toLowerCase().includes(search.toLowerCase())
     const matchesRisk = riskFilter === 'All' || resident.currentRiskLevel === riskFilter
-    return matchesSearch && matchesRisk
+    const matchesStatus = statusFilter === 'All' || resident.caseStatus === statusFilter
+    const matchesCategory = categoryFilter === 'All' || resident.caseCategory === categoryFilter
+    const matchesSafehouse = safehouseFilter === 'All' || String(resident.safehouseId) === safehouseFilter
+    return matchesSearch && matchesRisk && matchesStatus && matchesCategory && matchesSafehouse
   })
 
   return (
     <PageSection title="Caseload inventory" description="The core list view for resident care management.">
-      <SectionHeader title="Current residents" description="Search, filter, and open the resident workspace." />
+      <SectionHeader title="Current residents" description="Search and filter by status, risk, category, or safehouse." />
       <Surface
         title="Caseload"
-        subtitle="This should be highly scannable and calm, even with sensitive data."
+        subtitle="Highly scannable and calm, even with sensitive data."
         actions={
           <StatusPill tone={residents.source === 'live' ? 'success' : 'warning'}>
             {residents.source === 'live' ? 'Live data' : 'Fallback data'}
@@ -1509,16 +1849,42 @@ function CaseloadPage() {
       >
         <FilterToolbar>
           <label>
-            Search residents
+            Search
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Case number, worker, or category" />
           </label>
           <label>
-            Risk filter
+            Case status
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option>All</option>
+              <option>Active</option>
+              <option>Reintegration</option>
+              <option>Reunification</option>
+              <option>Closed</option>
+            </select>
+          </label>
+          <label>
+            Risk level
             <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}>
               <option>All</option>
               <option>High</option>
               <option>Moderate</option>
               <option>Low</option>
+            </select>
+          </label>
+          <label>
+            Case category
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="All">All</option>
+              {categories.map((cat) => <option key={cat}>{cat}</option>)}
+            </select>
+          </label>
+          <label>
+            Safehouse
+            <select value={safehouseFilter} onChange={(event) => setSafehouseFilter(event.target.value)}>
+              <option value="All">All</option>
+              {safehouseOptions.map((s) => (
+                <option key={s.safehouseId} value={String(s.safehouseId)}>{s.name}</option>
+              ))}
             </select>
           </label>
         </FilterToolbar>
@@ -1605,39 +1971,103 @@ function ResidentDetailPage({ residentId }: { residentId: number }) {
         ))}
       </nav>
       <div className="two-column-grid resident-grid">
-        <Surface title="Case summary" subtitle="Important information should come first, with calm hierarchy.">
+        <Surface title="Case summary" subtitle="Core case classification and reintegration status.">
+          <div className="stack-list">
+            <div className="stack-row"><strong>Case status</strong><p>{resident.caseStatus}</p></div>
+            <div className="stack-row"><strong>Case category</strong><p>{resident.caseCategory}</p></div>
+            {resident.caseSubCategory ? (
+              <div className="stack-row"><strong>Sub-category</strong><p>{resident.caseSubCategory}</p></div>
+            ) : null}
+            <div className="stack-row"><strong>Reintegration status</strong><p>{resident.reintegrationStatus}</p></div>
+            <div className="stack-row">
+              <strong>Risk level</strong>
+              <StatusPill tone={resident.currentRiskLevel === 'High' ? 'danger' : resident.currentRiskLevel === 'Moderate' ? 'warning' : 'success'}>
+                {resident.currentRiskLevel}
+              </StatusPill>
+            </div>
+            <div className="stack-row"><strong>Assigned social worker</strong><p>{resident.assignedSocialWorker}</p></div>
+          </div>
+        </Surface>
+
+        <Surface title="Demographics" subtitle="Age, gender, nationality, and religious background.">
+          <div className="stack-list">
+            <div className="stack-row"><strong>Age</strong><p>{resident.presentAge}</p></div>
+            <div className="stack-row"><strong>Gender</strong><p>{resident.gender ?? '—'}</p></div>
+            <div className="stack-row"><strong>Nationality</strong><p>{resident.nationality ?? '—'}</p></div>
+            <div className="stack-row"><strong>Religion</strong><p>{resident.religion ?? '—'}</p></div>
+          </div>
+        </Surface>
+
+        <Surface title="Disability information" subtitle="Disability status and any required accommodations.">
           <div className="stack-list">
             <div className="stack-row">
-              <strong>Current status</strong>
-              <p>{resident.caseStatus}</p>
+              <strong>Has disability</strong>
+              <StatusPill tone={resident.hasDisability ? 'warning' : 'default'}>
+                {resident.hasDisability ? 'Yes' : 'No'}
+              </StatusPill>
+            </div>
+            {resident.hasDisability && resident.disabilityDetails ? (
+              <div className="stack-row"><strong>Details</strong><p>{resident.disabilityDetails}</p></div>
+            ) : null}
+          </div>
+        </Surface>
+
+        <Surface title="Family socio-demographic profile" subtitle="DSWD classification categories for reporting.">
+          <div className="stack-list">
+            <div className="stack-row">
+              <strong>4Ps beneficiary</strong>
+              <StatusPill tone={resident.is4PsBeneficiary ? 'success' : 'default'}>{resident.is4PsBeneficiary ? 'Yes' : 'No'}</StatusPill>
             </div>
             <div className="stack-row">
-              <strong>Reintegration status</strong>
-              <p>{resident.reintegrationStatus}</p>
+              <strong>Solo parent household</strong>
+              <StatusPill tone={resident.isSoloParent ? 'warning' : 'default'}>{resident.isSoloParent ? 'Yes' : 'No'}</StatusPill>
             </div>
             <div className="stack-row">
-              <strong>Resident risk interpretation</strong>
-              <p>Current risk is {resident.currentRiskLevel.toLowerCase()}; the UI should pair this with explanation and next action.</p>
+              <strong>Indigenous peoples group</strong>
+              <StatusPill tone={resident.isIndigenousGroup ? 'warning' : 'default'}>{resident.isIndigenousGroup ? 'Yes' : 'No'}</StatusPill>
+            </div>
+            <div className="stack-row">
+              <strong>Informal settler</strong>
+              <StatusPill tone={resident.isInformalSettler ? 'warning' : 'default'}>{resident.isInformalSettler ? 'Yes' : 'No'}</StatusPill>
             </div>
           </div>
         </Surface>
-        <Surface title="Next actions" subtitle="Right-side context keeps the page practical.">
+
+        <Surface title="Admission details" subtitle="How and when the resident entered the safehouse.">
           <div className="stack-list">
-            <div className="stack-row">
-              <strong>Open latest process recording</strong>
-              <AppLink to={`/app/admin/residents/${residentId}/process-recordings`}>Review session history</AppLink>
-            </div>
-            <div className="stack-row">
-              <strong>Prepare for case conference</strong>
-              <AppLink to={`/app/admin/residents/${residentId}/case-conferences`}>Review upcoming conference</AppLink>
-            </div>
-            <div className="stack-row">
-              <strong>Check intervention plan</strong>
-              <AppLink to={`/app/admin/residents/${residentId}/intervention-plans`}>Open plans</AppLink>
-            </div>
+            <div className="stack-row"><strong>Admission date</strong><p>{resident.admissionDate ?? '—'}</p></div>
+            <div className="stack-row"><strong>Admission type</strong><p>{resident.admissionType ?? '—'}</p></div>
+          </div>
+        </Surface>
+
+        <Surface title="Referral information" subtitle="Source agency and referral pathway.">
+          <div className="stack-list">
+            <div className="stack-row"><strong>Referral source</strong><p>{resident.referralSource ?? '—'}</p></div>
+            <div className="stack-row"><strong>Referring agency</strong><p>{resident.referralAgency ?? '—'}</p></div>
           </div>
         </Surface>
       </div>
+
+      <Surface title="Quick navigation" subtitle="Jump to detailed sub-records for this resident.">
+        <div className="stack-list">
+          <div className="stack-row">
+            <strong>Process recordings</strong>
+            <AppLink to={`/app/admin/residents/${residentId}/process-recordings`}>View counseling history</AppLink>
+          </div>
+          <div className="stack-row">
+            <strong>Home visitations</strong>
+            <AppLink to={`/app/admin/residents/${residentId}/home-visitations`}>View visit log</AppLink>
+          </div>
+          <div className="stack-row">
+            <strong>Case conferences</strong>
+            <AppLink to={`/app/admin/residents/${residentId}/case-conferences`}>View conferences</AppLink>
+          </div>
+          <div className="stack-row">
+            <strong>Intervention plan</strong>
+            <AppLink to={`/app/admin/residents/${residentId}/intervention-plans`}>View active plans</AppLink>
+          </div>
+        </div>
+      </Surface>
     </PageSection>
   )
 }
@@ -1671,10 +2101,133 @@ function renderResidentSubpage(residentId: number, title: string, description: s
   )
 }
 
+function ProcessRecordingsPage({ residentId }: { residentId: number }) {
+  const items = mockProcessRecordings.filter((r) => r.residentId === residentId)
+  return (
+    <PageSection title="Process recordings" description="Counseling session history for this resident, displayed chronologically.">
+      {items.length === 0 ? (
+        <EmptyState title="No recordings yet" description="No counseling sessions have been logged for this resident." />
+      ) : (
+        items.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
+          <Surface key={item.id} title={item.title} subtitle={item.date}>
+            <div className="stack-list">
+              <div className="stack-row">
+                <strong>Social worker</strong><p>{item.socialWorker ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Session type</strong>
+                <StatusPill tone="default">{item.sessionType ?? '—'}</StatusPill>
+              </div>
+              <div className="stack-row">
+                <strong>Emotional state observed</strong><p>{item.emotionalState ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Session narrative</strong><p>{item.summary}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Interventions applied</strong><p>{item.interventions ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Follow-up actions</strong>
+                <p>{item.followUpActions ?? '—'}</p>
+              </div>
+              {item.status ? (
+                <div className="stack-row">
+                  <strong>Status</strong>
+                  <StatusPill tone="warning">{item.status}</StatusPill>
+                </div>
+              ) : null}
+            </div>
+          </Surface>
+        ))
+      )}
+    </PageSection>
+  )
+}
+
+function HomeVisitationsPage({ residentId }: { residentId: number }) {
+  const visits = mockHomeVisitations.filter((r) => r.residentId === residentId)
+  const conferences = mockCaseConferences.filter((r) => r.residentId === residentId)
+  return (
+    <PageSection title="Home visitations & case conferences" description="Field visits and conference history for this resident.">
+      <SectionHeader title="Home & field visits" description="Log of all home visits, follow-ups, and safety assessments." />
+      {visits.length === 0 ? (
+        <EmptyState title="No visits yet" description="No home visitations have been logged for this resident." />
+      ) : (
+        visits.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
+          <Surface key={item.id} title={item.title} subtitle={item.date}>
+            <div className="stack-list">
+              <div className="stack-row">
+                <strong>Visit type</strong>
+                <StatusPill tone="default">{item.visitType ?? '—'}</StatusPill>
+              </div>
+              <div className="stack-row">
+                <strong>Home environment</strong><p>{item.homeEnvironment ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Family cooperation</strong><p>{item.familyCooperation ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Safety concerns</strong><p>{item.safetyConcerns ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Follow-up actions</strong><p>{item.followUpActions ?? '—'}</p>
+              </div>
+              {item.status ? (
+                <div className="stack-row">
+                  <strong>Status</strong>
+                  <StatusPill tone="warning">{item.status}</StatusPill>
+                </div>
+              ) : null}
+            </div>
+          </Surface>
+        ))
+      )}
+
+      <SectionHeader title="Case conferences" description="Upcoming and historical case conferences for this resident." />
+      {conferences.length === 0 ? (
+        <EmptyState title="No conferences yet" description="No case conferences have been logged for this resident." />
+      ) : (
+        conferences.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
+          <Surface key={item.id} title={item.title} subtitle={item.date}>
+            <div className="stack-list">
+              <div className="stack-row">
+                <strong>Conference type</strong>
+                <StatusPill tone="default">{item.conferenceType ?? '—'}</StatusPill>
+              </div>
+              <div className="stack-row">
+                <strong>Attendees</strong><p>{item.attendees ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Decisions made</strong><p>{item.decisions ?? '—'}</p>
+              </div>
+              <div className="stack-row">
+                <strong>Next conference</strong><p>{item.nextConferenceDate ?? '—'}</p>
+              </div>
+              {item.status ? (
+                <div className="stack-row">
+                  <strong>Status</strong>
+                  <StatusPill tone={item.status === 'Upcoming' ? 'warning' : 'success'}>{item.status}</StatusPill>
+                </div>
+              ) : null}
+            </div>
+          </Surface>
+        ))
+      )}
+    </PageSection>
+  )
+}
+
+function CaseConferencesPage({ residentId }: { residentId: number }) {
+  return <HomeVisitationsPage residentId={residentId} />
+}
+
 function DonorsPage() {
   const supporters = useApiResource('/supporters', mockSupporters)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [showForm, setShowForm] = useState(false)
+  const [formSubmitted, setFormSubmitted] = useState(false)
   const filteredSupporters = supporters.data.filter((supporter) => {
     const matchesSearch =
       supporter.displayName.toLowerCase().includes(search.toLowerCase()) ||
@@ -1685,14 +2238,48 @@ function DonorsPage() {
   })
 
   return (
-    <PageSection title="Donors and supporters" description="Supporter management should stay clearly separated from donation operations.">
+    <PageSection title="Donors and supporters" description="View, create, and manage supporter profiles by type and status.">
+      {showForm ? (
+        <Surface title="Add supporter" subtitle="Record a new supporter profile." actions={
+          <button className="secondary-button" onClick={() => { setShowForm(false); setFormSubmitted(false) }}>Cancel</button>
+        }>
+          {formSubmitted ? (
+            <div className="success-panel"><h3>Supporter added</h3><p>The new supporter profile has been recorded. In production this would POST to <code>/supporters</code>.</p></div>
+          ) : (
+            <form className="form-grid" onSubmit={(e) => { e.preventDefault(); setFormSubmitted(true) }}>
+              <label className="full-span">Full name / organization<input required placeholder="e.g. Maria dela Cruz" /></label>
+              <label>
+                Supporter type
+                <select defaultValue="Monetary donor">
+                  <option>Monetary donor</option>
+                  <option>Volunteer</option>
+                  <option>Skills contributor</option>
+                  <option>In-kind donor</option>
+                  <option>Social media advocate</option>
+                </select>
+              </label>
+              <label>
+                Status
+                <select defaultValue="Active"><option>Active</option><option>Inactive</option></select>
+              </label>
+              <label className="full-span">Email<input type="email" placeholder="email@example.com" /></label>
+              <label className="full-span">Region / location<input placeholder="e.g. Metro Manila" /></label>
+              <button className="primary-button full-span" type="submit">Save supporter</button>
+            </form>
+          )}
+        </Surface>
+      ) : null}
+
       <Surface
         title="Supporter directory"
-        subtitle="The backend already exposes list and detail reads here."
+        subtitle="All registered supporters — monetary donors, volunteers, and skills contributors."
         actions={
-          <StatusPill tone={supporters.source === 'live' ? 'success' : 'warning'}>
-            {supporters.source === 'live' ? 'Live data' : 'Fallback data'}
-          </StatusPill>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <StatusPill tone={supporters.source === 'live' ? 'success' : 'warning'}>
+              {supporters.source === 'live' ? 'Live data' : 'Fallback data'}
+            </StatusPill>
+            <button className="primary-button" onClick={() => { setShowForm(true); setFormSubmitted(false) }}>+ Add supporter</button>
+          </div>
         }
       >
         <FilterToolbar>
@@ -1738,6 +2325,8 @@ function ContributionsPage() {
   const donations = useApiResource('/donations', mockDonations)
   const [campaignFilter, setCampaignFilter] = useState('All campaigns')
   const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [formSubmitted, setFormSubmitted] = useState(false)
   const campaignOptions = Array.from(new Set(donations.data.map((donation) => donation.campaignName)))
   const filteredDonations = donations.data.filter((donation) => {
     const matchesCampaign =
@@ -1750,14 +2339,49 @@ function ContributionsPage() {
   })
 
   return (
-    <PageSection title="Contributions" description="Connect donor, donation, allocation, and impact in one understandable workflow.">
+    <PageSection title="Contributions" description="Record, view, and manage all donation activity — monetary, in-kind, time, skills, and social media.">
+      {showForm ? (
+        <Surface title="Record donation" subtitle="Log a new contribution against a supporter profile." actions={
+          <button className="secondary-button" onClick={() => { setShowForm(false); setFormSubmitted(false) }}>Cancel</button>
+        }>
+          {formSubmitted ? (
+            <div className="success-panel"><h3>Donation recorded</h3><p>The contribution has been saved. In production this would POST to <code>/donations</code>.</p></div>
+          ) : (
+            <form className="form-grid" onSubmit={(e) => { e.preventDefault(); setFormSubmitted(true) }}>
+              <label className="full-span">Supporter name / ID<input required placeholder="e.g. Maria dela Cruz or supporter ID" /></label>
+              <label>
+                Donation type
+                <select defaultValue="Monetary">
+                  <option>Monetary</option>
+                  <option>In-kind</option>
+                  <option>Volunteer time</option>
+                  <option>Skills</option>
+                  <option>Social media</option>
+                </select>
+              </label>
+              <label>Amount (PHP)<input type="number" min="0" placeholder="0" /></label>
+              <label className="full-span">Campaign<input placeholder="e.g. Spring Stability Fund" /></label>
+              <label>Date<input type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+              <label>
+                Program area
+                <select defaultValue="Caring"><option>Caring</option><option>Healing</option><option>Teaching</option></select>
+              </label>
+              <button className="primary-button full-span" type="submit">Save donation</button>
+            </form>
+          )}
+        </Surface>
+      ) : null}
+
       <Surface
         title="Donations"
-        subtitle="This is a high-priority operational view for the final demo."
+        subtitle="All recorded contributions — monetary, in-kind, time, skills, and social media."
         actions={
-          <StatusPill tone={donations.source === 'live' ? 'success' : 'warning'}>
-            {donations.source === 'live' ? 'Live data' : 'Fallback data'}
-          </StatusPill>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <StatusPill tone={donations.source === 'live' ? 'success' : 'warning'}>
+              {donations.source === 'live' ? 'Live data' : 'Fallback data'}
+            </StatusPill>
+            <button className="primary-button" onClick={() => { setShowForm(true); setFormSubmitted(false) }}>+ Record donation</button>
+          </div>
         }
       >
         <FilterToolbar>
@@ -1993,20 +2617,118 @@ function PartnersPage() {
   )
 }
 
+const donationTrendData = [
+  { month: 'Oct 2025', amount: 12400, donors: 38 },
+  { month: 'Nov 2025', amount: 18900, donors: 54 },
+  { month: 'Dec 2025', amount: 34200, donors: 91 },
+  { month: 'Jan 2026', amount: 15600, donors: 44 },
+  { month: 'Feb 2026', amount: 19800, donors: 61 },
+  { month: 'Mar 2026', amount: 22500, donors: 70 },
+  { month: 'Apr 2026', amount: 9100, donors: 29 },
+]
+
+const safehousePerformanceData = [
+  { name: 'Lighthouse Cebu',   active: 18, reintegrated: 4, schoolEnrollment: '94%', riskHigh: 2 },
+  { name: 'Lighthouse Davao',  active: 16, reintegrated: 6, schoolEnrollment: '88%', riskHigh: 3 },
+  { name: 'Sanctuary Makati',  active: 14, reintegrated: 3, schoolEnrollment: '92%', riskHigh: 1 },
+  { name: 'Hope Haven Manila', active: 20, reintegrated: 7, schoolEnrollment: '85%', riskHigh: 4 },
+]
+
+const reintegrationData = [
+  { quarter: 'Q2 2025', placed: 5,  successAt90d: 5,  rate: '100%' },
+  { quarter: 'Q3 2025', placed: 7,  successAt90d: 6,  rate: '86%' },
+  { quarter: 'Q4 2025', placed: 9,  successAt90d: 8,  rate: '89%' },
+  { quarter: 'Q1 2026', placed: 6,  successAt90d: 5,  rate: '83%' },
+]
+
+const annualAccomplishmentData = [
+  { service: 'Caring',   beneficiaries: 68, sessions: 824, outcomes: 'Stable shelter, daily needs, medical care' },
+  { service: 'Healing',  beneficiaries: 61, sessions: 312, outcomes: 'Counseling completion, trauma reduction reported' },
+  { service: 'Teaching', beneficiaries: 54, sessions: 490, outcomes: 'School enrollment, academic milestone completion' },
+]
+
 function ReportsPage() {
   const impactSnapshots = useApiResource('/public-impact-snapshots', mockImpactSnapshots)
   const useMockStyleSnapshotColumns = impactSnapshotsUseMockColumns(impactSnapshots.data)
   const snapshotColumns = useMockStyleSnapshotColumns
     ? [...IMPACT_SNAPSHOT_COLUMNS_MOCK]
     : [...IMPACT_SNAPSHOT_COLUMNS_API]
+  const totalDonations = donationTrendData.reduce((sum, row) => sum + row.amount, 0)
+  const totalDonors = donationTrendData.reduce((sum, row) => sum + row.donors, 0)
+  const totalReintegrated = reintegrationData.reduce((sum, row) => sum + row.placed, 0)
 
   return (
-    <PageSection title="Reports and analytics" description="This area should feel like structured reporting, not a generic BI dump.">
+    <PageSection title="Reports and analytics" description="Structured reporting aligned with the Annual Accomplishment Report format used by Philippine social welfare agencies.">
       <div className="stat-grid">
-        <StatCard label="Operational focus" value="Reintegration readiness" />
-        <StatCard label="Reporting lens" value="Annual accomplishment style" />
-        <StatCard label="Published snapshots" value={String(impactSnapshots.data.length)} />
+        <StatCard label="Total donations (7 mo)" value={`$${totalDonations.toLocaleString()}`} hint="Across all campaigns" />
+        <StatCard label="Unique donors (7 mo)" value={String(totalDonors)} hint="Active giving community" />
+        <StatCard label="Residents reintegrated" value={String(totalReintegrated)} hint="Last 4 quarters" />
+        <StatCard label="Published snapshots" value={String(impactSnapshots.data.length)} hint="Public-facing impact" />
       </div>
+
+      <Surface title="Donation trends" subtitle="Monthly giving volume and unique donor counts over the past seven months.">
+        <DataTable
+          columns={['Month', 'Total donated', 'Unique donors']}
+          rows={donationTrendData.map((row) => [
+            row.month,
+            `$${row.amount.toLocaleString()}`,
+            String(row.donors),
+          ])}
+        />
+      </Surface>
+
+      <Surface title="Annual Accomplishment Report — Services" subtitle="Caring, Healing, and Teaching services aligned with DSWD reporting standards.">
+        <DataTable
+          columns={['Service area', 'Beneficiaries', 'Sessions delivered', 'Key outcomes']}
+          rows={annualAccomplishmentData.map((row) => [
+            row.service,
+            String(row.beneficiaries),
+            String(row.sessions),
+            row.outcomes,
+          ])}
+        />
+      </Surface>
+
+      <div className="two-column-grid">
+        <Surface title="Safehouse performance comparison" subtitle="Active residents, reintegrations, school enrollment, and high-risk flags by facility.">
+          <DataTable
+            columns={['Safehouse', 'Active', 'Reintegrated', 'School enroll.', 'High risk']}
+            rows={safehousePerformanceData.map((row) => [
+              row.name,
+              String(row.active),
+              String(row.reintegrated),
+              row.schoolEnrollment,
+              <StatusPill tone={row.riskHigh > 2 ? 'danger' : 'warning'}>{row.riskHigh}</StatusPill>,
+            ])}
+          />
+        </Surface>
+
+        <Surface title="Reintegration success rates" subtitle="Placements and 90-day success rate per quarter.">
+          <DataTable
+            columns={['Quarter', 'Placements', 'Stable at 90 days', 'Success rate']}
+            rows={reintegrationData.map((row) => [
+              row.quarter,
+              String(row.placed),
+              String(row.successAt90d),
+              <StatusPill tone={parseInt(row.rate) >= 90 ? 'success' : 'warning'}>{row.rate}</StatusPill>,
+            ])}
+          />
+        </Surface>
+      </div>
+
+      <Surface title="Resident outcome metrics" subtitle="Education and health progress across the current caseload.">
+        <DataTable
+          columns={['Metric', 'Current value', 'Change vs. last quarter', 'Notes']}
+          rows={[
+            ['School enrollment rate',      '90%',  '+5%',  'Up across all facilities; Davao still needs support'],
+            ['Counseling completion rate',  '84%',  '+3%',  'Group sessions driving completion'],
+            ['Health checkup compliance',   '97%',  '—',    'On-site medical officer partnership active'],
+            ['Reading level improvement',   '71%',  '+8%',  'Education partner reporting milestone completions'],
+            ['Sleep stability (self-report)','62%', '+14%', 'Routine changes showing measurable impact'],
+          ]}
+        />
+      </Surface>
+
       <Surface title="Published impact snapshots" subtitle="Treat these as reporting inputs, not just public content.">
         <DataTable
           columns={[...snapshotColumns]}
