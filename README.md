@@ -95,6 +95,14 @@ Run the strategic and leadership expansion pass, including the shared safehouse-
 py -3 ml/scripts/run_phase_e_strategic_expansion.py
 ```
 
+## Phase F Command
+
+Run the packaging and app-integration pass, including regenerated payload examples, refreshed manifests, the Phase F API contract matrix, and the packaging report:
+
+```powershell
+py -3 ml/scripts/run_phase_f_packaging_integration.py
+```
+
 ## Phase 6 Command
 
 Run the full nightly-style ML refresh locally without writing back to Supabase:

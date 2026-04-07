@@ -7,9 +7,12 @@ Use one shared ML service area instead of six isolated integrations.
 Recommended route pattern:
 
 * `GET /ml/pipelines`
-* `POST /ml/predict/{pipeline_name}`
+* `GET /ml/pipelines/{pipeline_name}`
+* `GET /ml/pipelines/{pipeline_name}/predictions`
+* `GET /ml/residents/{residentId}/insights`
+* `GET /ml/supporters/{supporterId}/insights`
+* `GET /ml/safehouses/{safehouseId}/insights`
 * `POST /ml/score-batch/{pipeline_name}`
-* `GET /ml/health`
 
 ## Payload Contracts
 
@@ -21,20 +24,27 @@ Phase 5 exports JSON examples to `ml/app-integration/payload_examples/`:
 
 Each manifest includes:
 
+* contract version
 * display name
 * business question
+* predictive and explanatory framing
+* task type and entity type
+* decision support and primary users
 * shared dataset
 * target column
 * passthrough id columns
-* model input columns
+* request columns and model input columns
 * recommended UI widgets
+* deployment notes
+* route hints
+* prediction contract semantics
 * saved metrics
 
 ## Versioning
 
 Use a simple contract header or field such as:
 
-* `X-ML-Contract-Version: 2026-04-phase5`
+* `X-ML-Contract-Version: 2026-04-phase-f`
 
 When model inputs change, version the manifest and payload examples together.
 
@@ -57,3 +67,4 @@ Recommended reusable widgets:
 * Keep prediction endpoints synchronous for small payloads.
 * Use the batch-scoring flow for larger CSV or queue-driven jobs.
 * Persist model metrics and manifests alongside deployed artifacts so the frontend can display provenance and caveats.
+* Regression pipelines (`next_donation_amount`, `resource_demand`) now publish the forecast in both `prediction` and `prediction_score`; published Supabase snapshots keep `prediction_value = null` for those pipelines to avoid a breaking schema change.

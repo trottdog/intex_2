@@ -57,7 +57,7 @@ def main() -> None:
     for pipeline_name in selected:
         exported.extend(export_pipeline(pipeline_name, output_dir))
 
-    print(f"Exported {len(exported)} Phase 5 API files to {output_dir}")
+    print(f"Exported {len(exported)} Phase F API files to {output_dir}")
 
 
 if __name__ == "__main__":

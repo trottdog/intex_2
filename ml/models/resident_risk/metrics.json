@@ -6,14 +6,15 @@
   "split_col": "snapshot_month",
   "selection_metric": "average_precision",
   "cutoff_date": "2025-04-01",
+  "task_type": "classification",
   "sample_count": 777.0,
   "positive_count": 36.0,
   "positive_rate": 0.04633204633204633,
-  "accuracy": 0.8828828828828829,
-  "balanced_accuracy": 0.5686009896536213,
-  "precision": 0.11267605633802817,
-  "recall": 0.2222222222222222,
-  "f1": 0.14953271028037382,
-  "roc_auc": 0.7929599640125955,
-  "average_precision": 0.13736782140614545
+  "accuracy": 0.8918918918918919,
+  "balanced_accuracy": 0.692251461988304,
+  "precision": 0.2073170731707317,
+  "recall": 0.4722222222222222,
+  "f1": 0.288135593220339,
+  "roc_auc": 0.905982905982906,
+  "average_precision": 0.22958721784818312
 }

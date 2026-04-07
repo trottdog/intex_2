@@ -98,7 +98,7 @@ export function formatMlPredictionValue(
   score: number | null | undefined,
 ): string {
   const numeric = asOptionalNumber(score)
-  if (numeric == null) return 'â€”'
+  if (numeric == null) return '--'
 
   if (pipelineName === 'next_donation_amount') {
     return currencyFormat.format(numeric)

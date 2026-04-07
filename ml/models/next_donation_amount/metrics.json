@@ -6,6 +6,7 @@
   "split_col": "snapshot_month",
   "selection_metric": "r2",
   "cutoff_date": "2025-04-01",
+  "task_type": "regression",
   "sample_count": 134.0,
   "mae": 437.8245518656713,
   "rmse": 599.2339849490929,

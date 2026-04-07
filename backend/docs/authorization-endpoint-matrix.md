@@ -46,6 +46,7 @@ This matrix reflects the current backend authorization model after the April 202
 | `/ml/pipelines*` | No | Yes | Yes | Yes | `DonorOrAdmin` policy. |
 | `/ml/residents/{residentId}/insights` | No | No | Yes | Yes | Admin-only restriction. |
 | `/ml/supporters/{supporterId}/insights` | No | Own supporter only | Yes | Yes | Donor self-scope enforced. |
+| `/ml/safehouses/{safehouseId}/insights` | No | No | Yes | Yes | Admin-only restriction with facility safehouse scope checks. |
 
 ## Verification References
 

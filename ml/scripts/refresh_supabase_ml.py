@@ -320,7 +320,7 @@ def build_post_label(scored: pd.Series) -> str:
         label_parts.append(str(scored.get("content_topic")))
     elif pd.notna(scored.get("day_of_week")) and pd.notna(scored.get("post_hour")):
         label_parts.append(f"{scored['day_of_week']} {int(scored['post_hour']):02d}:00")
-    return " · ".join(label_parts)
+    return " - ".join(label_parts)
 
 
 def build_prediction_rows(
@@ -471,7 +471,7 @@ def build_prediction_rows(
                     "entity_type": "social_media_post",
                     "entity_id": post_id,
                     "entity_key": f"post:{post_id}",
-                    "entity_label": " · ".join(label_parts),
+                    "entity_label": " - ".join(label_parts),
                     "safehouse_id": None,
                     "record_timestamp": to_python_datetime(
                         pd.to_datetime(scored.get("created_at"), errors="coerce")

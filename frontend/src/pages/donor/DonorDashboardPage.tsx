@@ -2,6 +2,7 @@ import { useSession } from '../../app/session'
 import type { Donation } from '../../data/mockData'
 import { useApiResource } from '../../lib/api'
 import {
+  formatMlPredictionValue,
   formatMlScore,
   formatMlTimestamp,
   getMlSignalLabel,
@@ -37,7 +38,11 @@ export function DonorDashboardPage() {
     [],
   )
   const donorRetentionInsight = supporterInsights.data.find((item) => item.pipelineName === 'donor_retention')
+  const donorUpgradeInsight = supporterInsights.data.find((item) => item.pipelineName === 'donor_upgrade')
+  const nextDonationAmountInsight = supporterInsights.data.find((item) => item.pipelineName === 'next_donation_amount')
   const donorRetentionContext = asRecord(donorRetentionInsight?.prediction.context)
+  const donorUpgradeContext = asRecord(donorUpgradeInsight?.prediction.context)
+  const nextDonationAmountContext = asRecord(nextDonationAmountInsight?.prediction.context)
 
   return (
     <>
@@ -63,21 +68,23 @@ export function DonorDashboardPage() {
         <StatCard label="Lifetime giving" value={formatAmount(donations.data.reduce((sum, d) => sum + asFiniteNumber(d.amount), 0))} />
       </div>
       <Surface
-        title="Retention insight"
+        title="Donor signals"
         subtitle={
           donorRetentionInsight
             ? `${summarizeMlMetrics(donorRetentionInsight.metrics)}. Refreshed ${formatMlTimestamp(donorRetentionInsight.trainedAt)}.`
-            : 'The nightly donor-retention model will appear here once the refresh job has published a run.'
+            : 'The nightly donor models will appear here once the refresh job has published donor-specific signals.'
         }
       >
         {supporterInsights.isLoading ? (
           <SkeletonStackRows count={3} />
         ) : supporterInsights.error ? (
           <ErrorState title="Could not load donor insight" description={supporterInsights.error} />
-        ) : !donorRetentionInsight ? (
-          <EmptyState title="No donor insight yet" description="Once the nightly model refresh runs, this panel will show your latest retention signal and outreach recommendation." />
+        ) : !donorRetentionInsight && !donorUpgradeInsight && !nextDonationAmountInsight ? (
+          <EmptyState title="No donor insight yet" description="Once the nightly model refresh runs, this panel will show your latest retention, upgrade, and expected-gift signals." />
         ) : (
           <div className="stack-list">
+            {donorRetentionInsight ? (
+            <>
             <div className="stack-row">
               <div>
                 <strong>Current stewardship signal</strong>
@@ -98,6 +105,34 @@ export function DonorDashboardPage() {
               <strong>Giving activity</strong>
               <p>{String(donorRetentionContext.donation_count ?? '—')} recorded gifts</p>
             </div>
+            </>
+            ) : null}
+            {donorUpgradeInsight ? (
+              <div className="stack-row">
+                <div>
+                  <strong>Upgrade potential</strong>
+                  <p>{String(donorUpgradeContext.recommended_action ?? 'Review whether a larger or more tailored ask makes sense this cycle.')}</p>
+                </div>
+                <div className="align-right">
+                  <StatusPill tone={getMlSignalTone('donor_upgrade', donorUpgradeInsight.prediction.predictionScore)}>
+                    {getMlSignalLabel('donor_upgrade', donorUpgradeInsight.prediction.predictionScore)}
+                  </StatusPill>
+                  <p>{formatMlScore(donorUpgradeInsight.prediction.predictionScore)}</p>
+                </div>
+              </div>
+            ) : null}
+            {nextDonationAmountInsight ? (
+              <div className="stack-row">
+                <div>
+                  <strong>Expected next gift</strong>
+                  <p>{String(nextDonationAmountContext.recommended_action ?? 'Use this estimate to guide ask sizing and follow-up timing.')}</p>
+                </div>
+                <div className="align-right">
+                  <strong>{formatMlPredictionValue('next_donation_amount', nextDonationAmountInsight.prediction.predictionScore)}</strong>
+                  <p>Forecasted next donation</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </Surface>

@@ -6,6 +6,7 @@
   "split_col": "snapshot_month",
   "selection_metric": "average_precision",
   "cutoff_date": "2025-04-01",
+  "task_type": "classification",
   "sample_count": 295.0,
   "positive_count": 68.0,
   "positive_rate": 0.2305084745762712,
