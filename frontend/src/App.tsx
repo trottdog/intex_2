@@ -2597,14 +2597,18 @@ function SafehousesPage() {
   const { user } = useSession()
   const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
   const [regionFilter, setRegionFilter] = useState('All regions')
+  const [nameSearch, setNameSearch] = useState('')
   const scoped = useMemo(() => {
     if (!user) return safehouses.data
     return filterSafehousesForSessionUser(user, safehouses.data)
   }, [user, safehouses.data])
   const regions = Array.from(new Set(scoped.map((safehouse) => safehouse.region)))
-  const filteredSafehouses = scoped.filter((safehouse) =>
-    regionFilter === 'All regions' ? true : safehouse.region === regionFilter,
-  )
+  const normalizedNameSearch = asLowerText(nameSearch)
+  const filteredSafehouses = scoped.filter((safehouse) => {
+    const matchesFilter = regionFilter === 'All regions' ? true : safehouse.region === regionFilter
+    const matchesSearch = normalizedNameSearch.length === 0 || asLowerText(safehouse.name).includes(normalizedNameSearch)
+    return matchesFilter && matchesSearch
+  })
 
   return (
     <PageSection title="Safehouses" description="Facility status and metrics should feel operational, not ornamental.">
@@ -2618,6 +2622,14 @@ function SafehousesPage() {
         }
       >
         <FilterToolbar>
+          <label>
+            Search by name
+            <input
+              value={nameSearch}
+              onChange={(event) => setNameSearch(event.target.value)}
+              placeholder="Type a safehouse name"
+            />
+          </label>
           <label>
             Region
             <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)}>
