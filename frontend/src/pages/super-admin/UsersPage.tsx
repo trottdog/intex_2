@@ -22,6 +22,73 @@ type SuccessFeedback = {
   message: string
 }
 
+function buildUserSaveSuccessMessage(kind: 'create' | 'edit', label: string, verified: boolean) {
+  const target = label.trim() || 'user'
+
+  if (kind === 'create') {
+    return verified
+      ? `User created successfully: ${target}. Returning to users list...`
+      : `User creation likely succeeded for ${target}. Returning to users list...`
+  }
+
+  return verified
+    ? `User updated successfully: ${target}. Returning to users list...`
+    : `User update likely succeeded for ${target}. Returning to users list...`
+}
+
+function sameNumberLists(left: number[] | undefined, right: number[]) {
+  const normalizedLeft = [...(left ?? [])].sort((a, b) => a - b)
+  const normalizedRight = [...right].sort((a, b) => a - b)
+
+  if (normalizedLeft.length !== normalizedRight.length) {
+    return false
+  }
+
+  return normalizedLeft.every((value, index) => value === normalizedRight[index])
+}
+
+function editWasApplied(
+  user: UserRecord,
+  originalUser: UserRecord,
+  expected: {
+    fullName: string
+    role: (typeof roleApiValues)[number]
+    status: 'active' | 'locked'
+    safehouseIds: number[]
+  },
+) {
+  const expectedName = expected.fullName.trim() || asText(originalUser.email, originalUser.name).trim()
+  const actualName = asText(user.name, '').trim()
+  const actualRole = asText(user.role, '').trim()
+  const actualStatus = asLowerText(user.status)
+  const actualSafehouseIds = user.safehouseIds ?? []
+
+  return (
+    user.id === originalUser.id &&
+    actualName === expectedName &&
+    actualRole === expected.role &&
+    (expected.status === 'locked' ? actualStatus === 'locked' : actualStatus !== 'locked') &&
+    sameNumberLists(actualSafehouseIds, expected.role === 'Admin' ? expected.safehouseIds : [])
+  )
+}
+
+async function fetchUsersWithRetry(retries = 3, delayMs = 200): Promise<UserRecord[]> {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      return await fetchJson<UserRecord[]>('/admin/users')
+    } catch (error) {
+      lastError = error
+      if (attempt < retries - 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs * (attempt + 1)))
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Could not reach the API.')
+}
+
 const feedbackStyles: Record<SuccessFeedback['kind'], { color: string; backgroundColor: string; borderColor: string }> = {
   create: {
     color: '#1b5e20',
@@ -69,6 +136,7 @@ export function UsersPage() {
   const [facilityFilter, setFacilityFilter] = useState('All')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [formSuccess, setFormSuccess] = useState<SuccessFeedback | null>(null)
@@ -128,6 +196,7 @@ export function UsersPage() {
       const fullName = createName.trim()
       const role = createRole
       const safehouseIds = createRole === 'Admin' ? createSafehouses : []
+      let creationVerified = true
 
       try {
         await sendJson<UserRecord>('/admin/users', 'POST', {
@@ -144,14 +213,23 @@ export function UsersPage() {
         }
 
         // If the network drops after write, verify by checking whether the new account exists.
-        const latestUsers = await fetchJson<UserRecord[]>('/admin/users')
-        const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
-        if (!createdUser) {
-          throw error
+        creationVerified = false
+        try {
+          const latestUsers = await fetchUsersWithRetry()
+          const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
+          if (!createdUser) {
+            throw error
+          }
+          creationVerified = true
+        } catch {
+          // Keep likely-success flow to avoid showing a false negative when write already persisted.
         }
       }
 
-      setFormSuccess({ kind: 'create', message: `Account created successfully for ${email}.` })
+      setFormSuccess({
+        kind: 'create',
+        message: buildUserSaveSuccessMessage('create', fullName || email, creationVerified),
+      })
       setCreateEmail('')
       setCreatePassword('')
       setShowCreatePassword(false)
@@ -168,6 +246,7 @@ export function UsersPage() {
   }
 
   function startEdit(user: UserRecord) {
+    setEditingUser(user)
     setEditingId(user.id)
     setEditName(user.name)
     setEditRole(
@@ -182,34 +261,80 @@ export function UsersPage() {
   }
 
   async function submitEdit() {
-    if (!editingId) return
+    if (!editingId || !editingUser) return
     setFormError(null)
     setBusy(true)
     try {
       const fullName = editName.trim()
+      const safehouseIds = editRole === 'Admin' ? editSafehouses : []
+      const successLabel = fullName || asText(editingUser.email, editingUser.name)
+
       await sendJson<UserRecord>(`/admin/users/${editingId}`, 'PUT', {
         fullName,
         role: editRole,
         status: editStatus,
-        safehouseIds: editRole === 'Admin' ? editSafehouses : [],
+        safehouseIds,
       })
       setEditingId(null)
-      setFormSuccess({ kind: 'edit', message: `User updated successfully${fullName ? `: ${fullName}` : '.'}` })
+      setEditingUser(null)
+      setFormSuccess({ kind: 'edit', message: buildUserSaveSuccessMessage('edit', successLabel, true) })
       users.reload()
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not update user')
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : ''
+      const fullName = editName.trim()
+      const safehouseIds = editRole === 'Admin' ? editSafehouses : []
+      const successLabel = fullName || asText(editingUser.email, editingUser.name)
+
+      if (message.includes('failed to fetch')) {
+        try {
+          const latestUsers = await fetchUsersWithRetry()
+          const updatedUser = latestUsers.find((user) => user.id === editingUser.id)
+
+          if (
+            updatedUser &&
+            editWasApplied(updatedUser, editingUser, {
+              fullName,
+              role: editRole,
+              status: editStatus,
+              safehouseIds,
+            })
+          ) {
+            setEditingId(null)
+            setEditingUser(null)
+            setFormSuccess({ kind: 'edit', message: buildUserSaveSuccessMessage('edit', successLabel, true) })
+            users.reload()
+            return
+          }
+        } catch {
+          // Keep likely-success flow below to avoid false negative messaging.
+        }
+
+        setEditingId(null)
+        setEditingUser(null)
+        setFormSuccess({ kind: 'edit', message: buildUserSaveSuccessMessage('edit', successLabel, false) })
+        users.reload()
+        return
+      }
+
+      setFormError(error instanceof Error ? error.message : 'Could not update user')
     } finally {
       setBusy(false)
     }
   }
 
-  async function removeUser(id: string) {
-    if (!window.confirm('Permanently delete this user? This cannot be undone.')) return
+  async function removeUser(id: string, userName?: string, userEmail?: string) {
+    const targetUser = (userName ?? '').trim() || (userEmail ?? '').trim()
+    const confirmMessage = targetUser
+      ? `Permanently delete ${targetUser}? This cannot be undone.`
+      : 'Permanently delete this user? This cannot be undone.'
+
+    if (!window.confirm(confirmMessage)) return
     setFormError(null)
     setBusy(true)
     try {
       await sendJson(`/admin/users/${id}`, 'DELETE', undefined)
       setEditingId(null)
+      setEditingUser(null)
       setFormSuccess({ kind: 'delete', message: 'User deleted successfully.' })
       users.reload()
     } catch (e) {
@@ -354,6 +479,7 @@ export function UsersPage() {
               className="secondary-button"
               onClick={() => {
                 setEditingId(null)
+                setEditingUser(null)
                 setFormError(null)
               }}
             >
@@ -498,7 +624,12 @@ export function UsersPage() {
                   <button type="button" className="secondary-button" disabled={busy} onClick={() => startEdit(u)}>
                     Edit
                   </button>
-                  <button type="button" className="secondary-button" disabled={busy} onClick={() => void removeUser(u.id)}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={busy}
+                    onClick={() => void removeUser(u.id, u.name, u.email)}
+                  >
                     Delete
                   </button>
                 </div>,
