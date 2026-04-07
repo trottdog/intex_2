@@ -216,6 +216,28 @@ export function UsersPage() {
 
   return (
     <PageSection title="Users" description="Create, update, lock, or remove accounts (super-admin only).">
+      {formSuccess && activeFeedbackStyle ? (
+        <div
+          style={{
+            color: activeFeedbackStyle.color,
+            backgroundColor: activeFeedbackStyle.backgroundColor,
+            border: `1px solid ${activeFeedbackStyle.borderColor}`,
+            borderRadius: '0.8rem',
+            padding: '0.85rem 1rem',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            fontWeight: 600,
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <SuccessIcon kind={formSuccess.kind} />
+          <span>{formSuccess.message}</span>
+        </div>
+      ) : null}
+
       {showForm ? (
         <Surface
           title="Add user"
@@ -417,26 +439,6 @@ export function UsersPage() {
             </div>
           }
         >
-          {formSuccess && activeFeedbackStyle ? (
-            <p
-              style={{
-                color: activeFeedbackStyle.color,
-                backgroundColor: activeFeedbackStyle.backgroundColor,
-                border: `1px solid ${activeFeedbackStyle.borderColor}`,
-                borderRadius: '0.6rem',
-                padding: '0.75rem 0.9rem',
-                marginBottom: '0.75rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontWeight: 600,
-              }}
-              role="status"
-            >
-              <SuccessIcon kind={formSuccess.kind} />
-              <span>{formSuccess.message}</span>
-            </p>
-          ) : null}
           {users.error ? <ErrorState title="Could not load users" description={users.error} /> : null}
           <FilterToolbar>
             <label>
