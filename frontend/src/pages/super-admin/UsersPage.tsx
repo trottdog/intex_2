@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Safehouse } from '../../data/mockData'
 import { fetchJson, sendJson, useApiResource } from '../../lib/api'
 import { DataTable, EmptyState, ErrorState, FilterToolbar, SkeletonSurface, SkeletonTable, StatusPill, Surface } from '../../components/ui'
@@ -20,6 +20,19 @@ const roleApiValues = ['Donor', 'Admin', 'SuperAdmin'] as const
 type SuccessFeedback = {
   kind: 'create' | 'delete'
   message: string
+}
+
+const feedbackStyles: Record<SuccessFeedback['kind'], { color: string; backgroundColor: string; borderColor: string }> = {
+  create: {
+    color: '#1b5e20',
+    backgroundColor: '#e8f5e9',
+    borderColor: '#81c784',
+  },
+  delete: {
+    color: '#b71c1c',
+    backgroundColor: '#ffebee',
+    borderColor: '#ef9a9a',
+  },
 }
 
 function SuccessIcon({ kind }: { kind: SuccessFeedback['kind'] }) {
@@ -54,6 +67,12 @@ export function UsersPage() {
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [formSuccess, setFormSuccess] = useState<SuccessFeedback | null>(null)
+
+  useEffect(() => {
+    if (!formSuccess) return
+    const timeoutId = window.setTimeout(() => setFormSuccess(null), 6000)
+    return () => window.clearTimeout(timeoutId)
+  }, [formSuccess])
 
   const [createEmail, setCreateEmail] = useState('')
   const [createPassword, setCreatePassword] = useState('')
@@ -192,6 +211,8 @@ export function UsersPage() {
       setBusy(false)
     }
   }
+
+  const activeFeedbackStyle = formSuccess ? feedbackStyles[formSuccess.kind] : null
 
   return (
     <PageSection title="Users" description="Create, update, lock, or remove accounts (super-admin only).">
@@ -396,10 +417,14 @@ export function UsersPage() {
             </div>
           }
         >
-          {formSuccess ? (
+          {formSuccess && activeFeedbackStyle ? (
             <p
               style={{
-                color: '#1b5e20',
+                color: activeFeedbackStyle.color,
+                backgroundColor: activeFeedbackStyle.backgroundColor,
+                border: `1px solid ${activeFeedbackStyle.borderColor}`,
+                borderRadius: '0.6rem',
+                padding: '0.75rem 0.9rem',
                 marginBottom: '0.75rem',
                 display: 'inline-flex',
                 alignItems: 'center',
