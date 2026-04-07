@@ -39,11 +39,21 @@ async function authFetch(path: string, init?: RequestInit): Promise<Response> {
     ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
     ...((init?.headers as Record<string, string>) ?? {}),
   }
-  return fetch(`${base}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers,
-  })
+  try {
+    return await fetch(`${base}${path}`, {
+      ...init,
+      credentials: 'include',
+      mode: 'cors',
+      headers,
+    })
+  } catch (error) {
+    const reason = error instanceof Error && error.message.trim().length > 0
+      ? error.message
+      : 'Request failed.'
+    throw new Error(
+      `Could not reach the authentication API for ${path}. Verify API URL, CORS, and cookie settings. (${reason})`,
+    )
+  }
 }
 
 export async function loginRequest(email: string, password: string): Promise<unknown> {

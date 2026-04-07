@@ -2,6 +2,7 @@ using DotNetEnv;
 using intex.Data;
 using intex.Security;
 using intex.Services;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -240,6 +241,50 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerPathFeature>();
+        var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("GlobalException");
+        if (feature?.Error is not null)
+        {
+            logger.LogError(feature.Error, "Unhandled exception for {Path}", context.Request.Path);
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+        var path = context.Request.Path.Value ?? string.Empty;
+        var firstSegment = path.Trim('/').Split('/', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var isApiRequest = string.Equals(firstSegment, "auth", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "public", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "ml", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "supporters", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "residents", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "safehouses", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "partners", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "partner-assignments", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "social-media-posts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "public-impact-snapshots", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "donations", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(firstSegment, "reports", StringComparison.OrdinalIgnoreCase);
+
+        if (isApiRequest)
+        {
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                error = "Server error while processing the request. Please retry."
+            });
+            return;
+        }
+
+        context.Response.ContentType = "text/plain; charset=utf-8";
+        await context.Response.WriteAsync("Server error while processing the request.");
+    });
+});
 
 var cspHeaderValue = BuildContentSecurityPolicy();
 app.Use(async (context, next) =>

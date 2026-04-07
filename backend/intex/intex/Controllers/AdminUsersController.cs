@@ -15,12 +15,18 @@ public class AdminUsersController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ApplicationDbContext _db;
+    private readonly ILogger<AdminUsersController> _logger;
 
-    public AdminUsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, ApplicationDbContext db)
+    public AdminUsersController(
+        UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
+        ApplicationDbContext db,
+        ILogger<AdminUsersController> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _db = db;
+        _logger = logger;
     }
 
     public record AdminUserRow(string Id, string Name, string? Email, string Role, string FacilityScope, string Status, long[]? SafehouseIds);
@@ -32,216 +38,260 @@ public class AdminUsersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<AdminUserRow>>> List(CancellationToken ct)
     {
-        var users = await _userManager.Users.AsNoTracking()
-            .OrderBy(u => u.Email)
-            .ToListAsync(ct);
-        var result = new List<AdminUserRow>(users.Count);
-        foreach (var u in users)
+        try
         {
-            result.Add(await MapUserAsync(u, ct));
-        }
+            var users = await _userManager.Users.AsNoTracking()
+                .OrderBy(u => u.Email)
+                .ToListAsync(ct);
+            var result = new List<AdminUserRow>(users.Count);
+            foreach (var u in users)
+            {
+                result.Add(await MapUserAsync(u, ct));
+            }
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to list admin users.");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Unable to load users right now. Please retry."
+            });
+        }
     }
 
     [HttpPost]
     public async Task<ActionResult<AdminUserRow>> Create([FromBody] CreateUserBody body, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(body.Email) || string.IsNullOrWhiteSpace(body.Password))
+        try
         {
-            return BadRequest(new { error = "Email and password are required." });
-        }
-
-        var roleName = NormalizeRole(body.Role);
-        if (roleName is null)
-        {
-            return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
-        }
-
-        if (!await _roleManager.RoleExistsAsync(roleName))
-        {
-            return StatusCode(StatusCodes.Status500InternalServerError, new
+            if (string.IsNullOrWhiteSpace(body.Email) || string.IsNullOrWhiteSpace(body.Password))
             {
-                error = $"Required Identity role '{roleName}' was not found. Run identity role seed/migrations and retry."
-            });
-        }
+                return BadRequest(new { error = "Email and password are required." });
+            }
 
-        var validatedSafehouseIds = await ValidateSafehouseIdsAsync(roleName, body.SafehouseIds, ct);
-        if (!validatedSafehouseIds.IsValid)
-        {
-            return BadRequest(new { error = validatedSafehouseIds.ErrorMessage });
-        }
-
-        var email = body.Email.Trim();
-        var user = new ApplicationUser
-        {
-            UserName = email,
-            Email = email,
-            FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim(),
-            EmailConfirmed = true,
-        };
-
-        var create = await _userManager.CreateAsync(user, body.Password);
-        if (!create.Succeeded)
-        {
-            return BadRequest(new { error = string.Join("; ", create.Errors.Select(e => e.Description)) });
-        }
-
-        var addRole = await _userManager.AddToRoleAsync(user, roleName);
-        if (!addRole.Succeeded)
-        {
-            await _userManager.DeleteAsync(user);
-            return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
-        }
-
-        if (roleName == IntexRoles.Admin && validatedSafehouseIds.SafehouseIds.Length > 0)
-        {
-            foreach (var sid in validatedSafehouseIds.SafehouseIds)
+            var roleName = NormalizeRole(body.Role);
+            if (roleName is null)
             {
-                _db.StaffSafehouseAssignments.Add(new StaffSafehouseAssignment
+                return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
+            }
+
+            if (!await _roleManager.RoleExistsAsync(roleName))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    UserId = user.Id,
-                    SafehouseId = sid,
+                    error = $"Required Identity role '{roleName}' was not found. Run identity role seed/migrations and retry."
                 });
             }
 
-            await _db.SaveChangesAsync(ct);
-        }
+            var validatedSafehouseIds = await ValidateSafehouseIdsAsync(roleName, body.SafehouseIds, ct);
+            if (!validatedSafehouseIds.IsValid)
+            {
+                return BadRequest(new { error = validatedSafehouseIds.ErrorMessage });
+            }
 
-        var created = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == user.Id, ct);
-        return StatusCode(StatusCodes.Status201Created, await MapUserAsync(created, ct));
+            var email = body.Email.Trim();
+            var user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim(),
+                EmailConfirmed = true,
+            };
+
+            var create = await _userManager.CreateAsync(user, body.Password);
+            if (!create.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", create.Errors.Select(e => e.Description)) });
+            }
+
+            var addRole = await _userManager.AddToRoleAsync(user, roleName);
+            if (!addRole.Succeeded)
+            {
+                await _userManager.DeleteAsync(user);
+                return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
+            }
+
+            if (roleName == IntexRoles.Admin && validatedSafehouseIds.SafehouseIds.Length > 0)
+            {
+                foreach (var sid in validatedSafehouseIds.SafehouseIds)
+                {
+                    _db.StaffSafehouseAssignments.Add(new StaffSafehouseAssignment
+                    {
+                        UserId = user.Id,
+                        SafehouseId = sid,
+                    });
+                }
+
+                await _db.SaveChangesAsync(ct);
+            }
+
+            var created = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == user.Id, ct);
+            return StatusCode(StatusCodes.Status201Created, await MapUserAsync(created, ct));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create admin user {Email}.", body.Email);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Unable to create user right now. Please retry."
+            });
+        }
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<AdminUserRow>> Update(string id, [FromBody] UpdateUserBody body, CancellationToken ct)
     {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user is null)
+        try
         {
-            return NotFound();
-        }
+            var user = await _userManager.FindByIdAsync(id);
+            if (user is null)
+            {
+                return NotFound();
+            }
 
-        var roleName = NormalizeRole(body.Role);
-        if (roleName is null)
-        {
-            return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
-        }
+            var roleName = NormalizeRole(body.Role);
+            if (roleName is null)
+            {
+                return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
+            }
 
-        if (!await _roleManager.RoleExistsAsync(roleName))
+            if (!await _roleManager.RoleExistsAsync(roleName))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    error = $"Required Identity role '{roleName}' was not found. Run identity role seed/migrations and retry."
+                });
+            }
+
+            var validatedSafehouseIds = await ValidateSafehouseIdsAsync(roleName, body.SafehouseIds, ct);
+            if (!validatedSafehouseIds.IsValid)
+            {
+                return BadRequest(new { error = validatedSafehouseIds.ErrorMessage });
+            }
+
+            var status = NormalizeStatus(body.Status);
+            if (status is null)
+            {
+                return BadRequest(new { error = "Status must be active or locked." });
+            }
+
+            user.FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim();
+            var update = await _userManager.UpdateAsync(user);
+            if (!update.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", update.Errors.Select(e => e.Description)) });
+            }
+
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            if (!currentRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
+            {
+                var addRole = await _userManager.AddToRoleAsync(user, roleName);
+                if (!addRole.Succeeded)
+                {
+                    return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
+                }
+            }
+
+            var rolesToRemove = currentRoles
+                .Where(r => !string.Equals(r, roleName, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (rolesToRemove.Length > 0)
+            {
+                var removeRoles = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+                if (!removeRoles.Succeeded)
+                {
+                    return BadRequest(new { error = string.Join("; ", removeRoles.Errors.Select(e => e.Description)) });
+                }
+            }
+
+            var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
+            _db.StaffSafehouseAssignments.RemoveRange(assignments);
+
+            if (roleName == IntexRoles.Admin && validatedSafehouseIds.SafehouseIds.Length > 0)
+            {
+                foreach (var sid in validatedSafehouseIds.SafehouseIds)
+                {
+                    _db.StaffSafehouseAssignments.Add(new StaffSafehouseAssignment { UserId = id, SafehouseId = sid });
+                }
+            }
+
+            if (status == "locked")
+            {
+                var lockoutEnabled = await _userManager.SetLockoutEnabledAsync(user, true);
+                if (!lockoutEnabled.Succeeded)
+                {
+                    return BadRequest(new { error = string.Join("; ", lockoutEnabled.Errors.Select(e => e.Description)) });
+                }
+
+                var lockoutEnd = await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+                if (!lockoutEnd.Succeeded)
+                {
+                    return BadRequest(new { error = string.Join("; ", lockoutEnd.Errors.Select(e => e.Description)) });
+                }
+            }
+            else
+            {
+                var unlock = await _userManager.SetLockoutEndDateAsync(user, null);
+                if (!unlock.Succeeded)
+                {
+                    return BadRequest(new { error = string.Join("; ", unlock.Errors.Select(e => e.Description)) });
+                }
+            }
+
+            await _db.SaveChangesAsync(ct);
+
+            var updated = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
+            return Ok(await MapUserAsync(updated, ct));
+        }
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to update admin user {UserId}.", id);
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
-                error = $"Required Identity role '{roleName}' was not found. Run identity role seed/migrations and retry."
+                error = "Unable to update user right now. Please retry."
             });
         }
-
-        var validatedSafehouseIds = await ValidateSafehouseIdsAsync(roleName, body.SafehouseIds, ct);
-        if (!validatedSafehouseIds.IsValid)
-        {
-            return BadRequest(new { error = validatedSafehouseIds.ErrorMessage });
-        }
-
-        var status = NormalizeStatus(body.Status);
-        if (status is null)
-        {
-            return BadRequest(new { error = "Status must be active or locked." });
-        }
-
-        user.FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim();
-        var update = await _userManager.UpdateAsync(user);
-        if (!update.Succeeded)
-        {
-            return BadRequest(new { error = string.Join("; ", update.Errors.Select(e => e.Description)) });
-        }
-
-        var currentRoles = await _userManager.GetRolesAsync(user);
-        if (!currentRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
-        {
-            var addRole = await _userManager.AddToRoleAsync(user, roleName);
-            if (!addRole.Succeeded)
-            {
-                return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
-            }
-        }
-
-        var rolesToRemove = currentRoles
-            .Where(r => !string.Equals(r, roleName, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        if (rolesToRemove.Length > 0)
-        {
-            var removeRoles = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
-            if (!removeRoles.Succeeded)
-            {
-                return BadRequest(new { error = string.Join("; ", removeRoles.Errors.Select(e => e.Description)) });
-            }
-        }
-
-        var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
-        _db.StaffSafehouseAssignments.RemoveRange(assignments);
-
-        if (roleName == IntexRoles.Admin && validatedSafehouseIds.SafehouseIds.Length > 0)
-        {
-            foreach (var sid in validatedSafehouseIds.SafehouseIds)
-            {
-                _db.StaffSafehouseAssignments.Add(new StaffSafehouseAssignment { UserId = id, SafehouseId = sid });
-            }
-        }
-
-        if (status == "locked")
-        {
-            var lockoutEnabled = await _userManager.SetLockoutEnabledAsync(user, true);
-            if (!lockoutEnabled.Succeeded)
-            {
-                return BadRequest(new { error = string.Join("; ", lockoutEnabled.Errors.Select(e => e.Description)) });
-            }
-
-            var lockoutEnd = await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
-            if (!lockoutEnd.Succeeded)
-            {
-                return BadRequest(new { error = string.Join("; ", lockoutEnd.Errors.Select(e => e.Description)) });
-            }
-        }
-        else
-        {
-            var unlock = await _userManager.SetLockoutEndDateAsync(user, null);
-            if (!unlock.Succeeded)
-            {
-                return BadRequest(new { error = string.Join("; ", unlock.Errors.Select(e => e.Description)) });
-            }
-        }
-
-        await _db.SaveChangesAsync(ct);
-
-        var updated = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
-        return Ok(await MapUserAsync(updated, ct));
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id, CancellationToken ct)
     {
-        var current = await _userManager.GetUserAsync(User);
-        if (current is not null && current.Id == id)
+        try
         {
-            return BadRequest(new { error = "You cannot delete your own account." });
-        }
+            var current = await _userManager.GetUserAsync(User);
+            if (current is not null && current.Id == id)
+            {
+                return BadRequest(new { error = "You cannot delete your own account." });
+            }
 
-        var user = await _userManager.FindByIdAsync(id);
-        if (user is null)
+            var user = await _userManager.FindByIdAsync(id);
+            if (user is null)
+            {
+                return NotFound();
+            }
+
+            var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
+            _db.StaffSafehouseAssignments.RemoveRange(assignments);
+            await _db.SaveChangesAsync(ct);
+
+            var del = await _userManager.DeleteAsync(user);
+            if (!del.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", del.Errors.Select(e => e.Description)) });
+            }
+
+            return NoContent();
+        }
+        catch (Exception ex)
         {
-            return NotFound();
+            _logger.LogError(ex, "Failed to delete admin user {UserId}.", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Unable to delete user right now. Please retry."
+            });
         }
-
-        var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
-        _db.StaffSafehouseAssignments.RemoveRange(assignments);
-        await _db.SaveChangesAsync(ct);
-
-        var del = await _userManager.DeleteAsync(user);
-        if (!del.Succeeded)
-        {
-            return BadRequest(new { error = string.Join("; ", del.Errors.Select(e => e.Description)) });
-        }
-
-        return NoContent();
     }
 
     private static string? NormalizeRole(string raw)
