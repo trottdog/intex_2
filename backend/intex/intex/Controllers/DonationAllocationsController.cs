@@ -1,4 +1,5 @@
 using intex.Data;
+using intex.Security;
 using intex.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -9,7 +10,7 @@ namespace intex.Controllers;
 
 [ApiController]
 [Route("donations/{donationId:long}/allocations")]
-[Authorize(Roles = IntexRoles.Donor + "," + IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+[Authorize(Policy = AuthorizationPolicies.DonorOrAdmin)]
 public class DonationAllocationsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -31,7 +32,7 @@ public class DonationAllocationsController : ControllerBase
         long donationId,
         CancellationToken cancellationToken)
     {
-        if (!await CanAccessDonation(donationId, cancellationToken))
+        if (!await CanAccessDonationAsync(donationId, cancellationToken))
         {
             return NotFound();
         }
@@ -67,7 +68,7 @@ public class DonationAllocationsController : ControllerBase
         long allocationId,
         CancellationToken cancellationToken)
     {
-        if (!await CanAccessDonation(donationId, cancellationToken))
+        if (!await CanAccessDonationAsync(donationId, cancellationToken))
         {
             return NotFound();
         }
@@ -97,7 +98,7 @@ public class DonationAllocationsController : ControllerBase
         return Ok(row);
     }
 
-    private async Task<bool> CanAccessDonation(long donationId, CancellationToken ct)
+    private async Task<bool> CanAccessDonationAsync(long donationId, CancellationToken ct)
     {
         var scope = await _scopeResolver.ResolveAsync(User, ct);
         if (scope.IsUnrestricted)
@@ -114,22 +115,24 @@ public class DonationAllocationsController : ControllerBase
         {
             var uid = _users.GetUserId(User);
             return await _db.Donations.AsNoTracking()
-                .AnyAsync(d => d.DonationId == donationId && _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
+                .AnyAsync(d =>
+                    d.DonationId == donationId &&
+                    _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
         }
 
         return false;
     }
 
     [HttpPost]
-    [Authorize(Roles = IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Create(long donationId) => StatusCode(StatusCodes.Status201Created);
 
     [HttpPut("{allocationId:long}")]
-    [Authorize(Roles = IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Update(long donationId, long allocationId) => Ok();
 
     [HttpDelete("{allocationId:long}")]
-    [Authorize(Roles = IntexRoles.SuperAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Delete(long donationId, long allocationId) => NoContent();
 }
 

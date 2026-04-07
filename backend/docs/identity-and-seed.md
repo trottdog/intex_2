@@ -28,7 +28,7 @@ dotnet user-secrets set "Auth:Seed:StaffPassword" "YourStrongPass2"
 dotnet user-secrets set "Auth:Seed:DonorPassword" "YourStrongPass3"
 ```
 
-Passwords must satisfy Identity options: at least 8 characters, upper, lower, and digit. A special character is **not** required (`RequireNonAlphanumeric` is off for demo passwords like `Lighthouse1`).
+Passwords now follow a **length-only policy**: minimum 12 characters, with no required uppercase/lowercase/digit/special character mix. Example demo-friendly values include `LighthouseAdmin01`, `LighthouseStaff01`, and `LighthouseDonor01`.
 
 Optional overrides:
 

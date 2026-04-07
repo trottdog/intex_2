@@ -25,9 +25,9 @@ The real source of truth for demo logins is **`IdentityDevSeeder`** in `backend/
 
 ```bash
 cd backend/intex/intex
-dotnet user-secrets set "Auth:Seed:SuperAdminPassword" "Lighthouse1"
-dotnet user-secrets set "Auth:Seed:StaffPassword"      "Lighthouse2"
-dotnet user-secrets set "Auth:Seed:DonorPassword"      "Lighthouse3"
+dotnet user-secrets set "Auth:Seed:SuperAdminPassword" "LighthouseAdmin01"
+dotnet user-secrets set "Auth:Seed:StaffPassword"      "LighthouseStaff01"
+dotnet user-secrets set "Auth:Seed:DonorPassword"      "LighthouseDonor01"
 ```
 
 **Re-run the full EF seed**
@@ -55,9 +55,9 @@ It does **not** create users or password hashes. For passwords, either:
 
 | Account | Password (typical demo) |
 |---------|-------------------------|
-| `julie.hernando@lighthouse.intex` | `Lighthouse1` |
-| `shNN.staffM@lighthouse.intex` | `Lighthouse2` |
-| Supporter emails (donor accounts) | `Lighthouse3` |
+| `julie.hernando@lighthouse.intex` | `LighthouseAdmin01` |
+| `shNN.staffM@lighthouse.intex` | `LighthouseStaff01` |
+| Supporter emails (donor accounts) | `LighthouseDonor01` |
 
 Usernames: staff `shNN_staffM`, donors `donor_{supporterId}`.
 

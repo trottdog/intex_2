@@ -1,4 +1,5 @@
 using intex.Data;
+using intex.Security;
 using intex.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -9,7 +10,7 @@ namespace intex.Controllers;
 
 [ApiController]
 [Route("donations/{donationId:long}/in-kind-items")]
-[Authorize(Roles = IntexRoles.Donor + "," + IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+[Authorize(Policy = AuthorizationPolicies.DonorOrAdmin)]
 public class InKindDonationItemsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -107,7 +108,9 @@ public class InKindDonationItemsController : ControllerBase
         {
             var uid = _users.GetUserId(User);
             return await _db.Donations.AsNoTracking()
-                .AnyAsync(d => d.DonationId == donationId && _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
+                .AnyAsync(d =>
+                    d.DonationId == donationId &&
+                    _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
         }
 
         return false;

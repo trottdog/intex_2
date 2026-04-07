@@ -1,5 +1,6 @@
 using DotNetEnv;
 using intex.Data;
+using intex.Security;
 using intex.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -119,18 +120,28 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
-        options.Password.RequireDigit = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireLowercase = true;
-        // Demo passwords in SETUP.md (e.g. Lighthouse1) are alphanumeric only.
+        // Ticket requirement: enforce long passwords without character-class complexity rules.
+        options.Password.RequireDigit = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
         options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequiredLength = 8;
+        options.Password.RequiredLength = 12;
         options.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.DonorOnly, policy =>
+        policy.RequireRole(IntexRoles.Donor));
+
+    options.AddPolicy(AuthorizationPolicies.DonorOrAdmin, policy =>
+        policy.RequireRole(IntexRoles.Donor, IntexRoles.Admin, IntexRoles.SuperAdmin));
+
+    options.AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
+        policy.RequireRole(IntexRoles.Admin, IntexRoles.SuperAdmin));
+});
 
 builder.Services.AddScoped<IFacilityDataScopeResolver, FacilityDataScopeResolver>();
 

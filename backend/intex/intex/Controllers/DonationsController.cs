@@ -1,4 +1,5 @@
 using intex.Data;
+using intex.Security;
 using intex.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -9,7 +10,7 @@ namespace intex.Controllers;
 
 [ApiController]
 [Route("donations")]
-[Authorize(Roles = IntexRoles.Donor + "," + IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+[Authorize(Policy = AuthorizationPolicies.DonorOrAdmin)]
 public class DonationsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
@@ -39,21 +40,24 @@ public class DonationsController : ControllerBase
                 return Ok(Array.Empty<DonationDto>());
             }
 
-            q = q.Where(d => _db.DonationAllocations.Any(a => a.DonationId == d.DonationId && scope.SafehouseIds.Contains(a.SafehouseId)));
+            q = q.Where(d => _db.DonationAllocations.Any(a =>
+                a.DonationId == d.DonationId &&
+                scope.SafehouseIds.Contains(a.SafehouseId)));
         }
         else if (!scope.IsUnrestricted && User.IsInRole(IntexRoles.Donor))
         {
             var uid = _users.GetUserId(User);
-            var supId = await _db.Supporters.AsNoTracking()
+            var supporterId = await _db.Supporters.AsNoTracking()
                 .Where(s => s.IdentityUserId == uid)
                 .Select(s => (long?)s.SupporterId)
                 .FirstOrDefaultAsync(cancellationToken);
-            if (supId is null)
+
+            if (supporterId is null)
             {
                 return Ok(Array.Empty<DonationDto>());
             }
 
-            q = q.Where(d => d.SupporterId == supId);
+            q = q.Where(d => d.SupporterId == supporterId);
         }
 
         var rows = await q
@@ -138,19 +142,21 @@ public class DonationsController : ControllerBase
     {
         var uid = _users.GetUserId(User);
         return await _db.Donations.AsNoTracking()
-            .AnyAsync(d => d.DonationId == donationId && _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
+            .AnyAsync(d =>
+                d.DonationId == donationId &&
+                _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
     }
 
     [HttpPost]
-    [Authorize(Roles = IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Create() => StatusCode(StatusCodes.Status201Created);
 
     [HttpPut("{id:long}")]
-    [Authorize(Roles = IntexRoles.Admin + "," + IntexRoles.SuperAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Update(long id) => Ok();
 
     [HttpDelete("{id:long}")]
-    [Authorize(Roles = IntexRoles.SuperAdmin)]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Delete(long id) => NoContent();
 }
 
