@@ -1223,17 +1223,22 @@ p {
 
 .social-post-photo {
   width: 100%;
-  max-height: min(62vh, 420px);
+  max-height: 280px;
   object-fit: cover;
-  object-position: center top;
+  object-position: center 50%;
   display: block;
 }
 
-@media (max-width: 640px) {
-  .social-post-photo {
-    max-height: 52vh;
-    object-position: center top;
-  }
+.social-post-photo[src*="puzzle"] {
+  object-position: center 42%;
+}
+
+.social-post-photo[src*="friends.jpg"] {
+  object-position: center 42%;
+}
+
+.social-post-photo[src*="duo.jpg"] {
+  object-position: center 58%;
 }
 
 .social-post-overlay {
