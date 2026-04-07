@@ -16,6 +16,7 @@ import { NotFoundPage } from '../pages/public/NotFoundPage'
 import { RoleRedirectPage } from '../pages/auth/RoleRedirectPage'
 import { AccountPage } from '../pages/auth/AccountPage'
 import { SecurityPage } from '../pages/auth/SecurityPage'
+import { ManageMfaPage } from '../pages/auth/ManageMfaPage'
 import { ForbiddenPage } from '../pages/auth/ForbiddenPage'
 
 import { DonorDashboardPage } from '../pages/donor/DonorDashboardPage'
@@ -166,6 +167,12 @@ export function resolveRoute(pathname: string, role: UserRole) {
       kind: 'app',
       requiresRole: ['donor', 'admin', 'super-admin', 'public'],
       render: () => <SecurityPage />,
+    },
+    {
+      path: '/app/account/mfa',
+      kind: 'app',
+      requiresRole: ['donor', 'admin', 'super-admin', 'public'],
+      render: () => <ManageMfaPage />,
     },
     {
       path: '/app/forbidden',

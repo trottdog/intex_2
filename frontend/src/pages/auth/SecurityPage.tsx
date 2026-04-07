@@ -1,4 +1,4 @@
-import { Surface } from '../../components/ui'
+import { AppLink, Surface } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
 
 export function SecurityPage() {
@@ -12,7 +12,7 @@ export function SecurityPage() {
           <div className="stack-row">
             <strong>Sign-in</strong>
             <p>
-              POST <code>/auth/login</code> with email and password. The API sets an HTTP-only cookie (<code>Beacon.Auth</code>); the frontend never stores the password after submit.
+              POST <code>/auth/login</code> with email and password. If MFA is enabled on the account, login continues with an authenticator code or recovery code before the API sets the HTTP-only auth cookie (<code>Beacon.Auth</code>).
             </p>
           </div>
           <div className="stack-row">
@@ -31,6 +31,12 @@ export function SecurityPage() {
             <strong>Roles</strong>
             <p>
               API roles <code>Donor</code>, <code>Admin</code>, and <code>SuperAdmin</code> map to UI routes for donor portal, facility workspace, and global oversight. Authorization for data still belongs on the server.
+            </p>
+          </div>
+          <div className="stack-row">
+            <strong>MFA settings</strong>
+            <p>
+              Configure TOTP and recovery codes in <AppLink to="/app/account/mfa">Manage MFA</AppLink>. The backend endpoints are <code>/auth/mfa/*</code>.
             </p>
           </div>
         </div>
