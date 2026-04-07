@@ -867,11 +867,12 @@ function HomePage() {
 }
 
 function ImpactPage() {
-  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics)
-  const safehouses = useApiResource<Safehouse[]>('/public/impact/safehouses', [])
+  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics, { sessionCacheImpact: true })
+  const safehouses = useApiResource<Safehouse[]>('/public/impact/safehouses', [], { sessionCacheImpact: true })
   const donationSummary = useApiResource<PublicDonationSummary>(
     '/public/impact/donation-summary',
     emptyDonationSummary,
+    { sessionCacheImpact: true },
   )
   const loading = metrics.isLoading || safehouses.isLoading || donationSummary.isLoading
 
@@ -1738,7 +1739,7 @@ function DonorDonationDetailPage({ donationId }: { donationId: number }) {
 }
 
 function DonorImpactPage() {
-  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics)
+  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics, { sessionCacheImpact: true })
   return (
     <PageSection title="Impact of giving" description="See how your contributions translate into real outcomes.">
       {metrics.isLoading ? (
