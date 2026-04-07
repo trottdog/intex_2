@@ -58,6 +58,23 @@ function editWasApplied(
   )
 }
 
+async function fetchUsersWithRetry(retries = 3, delayMs = 200): Promise<UserRecord[]> {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      return await fetchJson<UserRecord[]>('/admin/users')
+    } catch (error) {
+      lastError = error
+      if (attempt < retries - 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs * (attempt + 1)))
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Could not reach the API.')
+}
+
 const feedbackStyles: Record<SuccessFeedback['kind'], { color: string; backgroundColor: string; borderColor: string }> = {
   create: {
     color: '#1b5e20',
@@ -181,7 +198,7 @@ export function UsersPage() {
         }
 
         // If the network drops after write, verify by checking whether the new account exists.
-        const latestUsers = await fetchJson<UserRecord[]>('/admin/users')
+        const latestUsers = await fetchUsersWithRetry()
         const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
         if (!createdUser) {
           throw error
@@ -242,7 +259,7 @@ export function UsersPage() {
 
       if (message.includes('failed to fetch')) {
         try {
-          const latestUsers = await fetchJson<UserRecord[]>('/admin/users')
+          const latestUsers = await fetchUsersWithRetry()
           const updatedUser = latestUsers.find((user) => user.id === editingUser.id)
 
           if (
@@ -274,8 +291,13 @@ export function UsersPage() {
     }
   }
 
-  async function removeUser(id: string) {
-    if (!window.confirm('Permanently delete this user? This cannot be undone.')) return
+  async function removeUser(id: string, userName?: string, userEmail?: string) {
+    const targetUser = (userName ?? '').trim() || (userEmail ?? '').trim()
+    const confirmMessage = targetUser
+      ? `Permanently delete ${targetUser}? This cannot be undone.`
+      : 'Permanently delete this user? This cannot be undone.'
+
+    if (!window.confirm(confirmMessage)) return
     setFormError(null)
     setBusy(true)
     try {
@@ -571,7 +593,12 @@ export function UsersPage() {
                   <button type="button" className="secondary-button" disabled={busy} onClick={() => startEdit(u)}>
                     Edit
                   </button>
-                  <button type="button" className="secondary-button" disabled={busy} onClick={() => void removeUser(u.id)}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={busy}
+                    onClick={() => void removeUser(u.id, u.name, u.email)}
+                  >
                     Delete
                   </button>
                 </div>,
