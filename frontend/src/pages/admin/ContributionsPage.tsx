@@ -12,6 +12,10 @@ import {
   Surface,
 } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
+import {
+  SUPPORTER_NAME_OR_ID_PATTERN,
+  SUPPORTER_NAME_OR_ID_TITLE,
+} from '../../utils/formValidation'
 import { asLowerText, asText, formatAmount } from '../../utils/helpers'
 
 export function ContributionsPage() {
@@ -42,8 +46,29 @@ export function ContributionsPage() {
           {formSubmitted ? (
             <div className="success-panel"><h3>Donation recorded</h3><p>The contribution has been saved. In production this would POST to <code>/donations</code>.</p></div>
           ) : (
-            <form className="form-grid" onSubmit={(e) => { e.preventDefault(); setFormSubmitted(true) }}>
-              <label className="full-span">Supporter name / ID<input required placeholder="e.g. Maria dela Cruz or supporter ID" /></label>
+            <form
+              className="form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const form = event.currentTarget
+                if (!form.checkValidity()) {
+                  form.reportValidity()
+                  return
+                }
+                setFormSubmitted(true)
+              }}
+            >
+              <label className="full-span">
+                Supporter name / ID
+                <input
+                  required
+                  minLength={3}
+                  maxLength={120}
+                  pattern={SUPPORTER_NAME_OR_ID_PATTERN}
+                  title={SUPPORTER_NAME_OR_ID_TITLE}
+                  placeholder="e.g. Maria dela Cruz or supporter ID"
+                />
+              </label>
               <label>
                 Donation type
                 <select defaultValue="Monetary">
@@ -54,9 +79,9 @@ export function ContributionsPage() {
                   <option>Social media</option>
                 </select>
               </label>
-              <label>Amount (PHP)<input type="number" min="0" placeholder="0" /></label>
-              <label className="full-span">Campaign<input placeholder="e.g. Spring Stability Fund" /></label>
-              <label>Date<input type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+              <label>Amount (PHP)<input type="number" min="1" step="0.01" required placeholder="0" /></label>
+              <label className="full-span">Campaign<input required minLength={3} maxLength={120} placeholder="e.g. Spring Stability Fund" /></label>
+              <label>Date<input type="date" required defaultValue={new Date().toISOString().slice(0, 10)} /></label>
               <label>
                 Program area
                 <select defaultValue="Caring"><option>Caring</option><option>Healing</option><option>Teaching</option></select>
