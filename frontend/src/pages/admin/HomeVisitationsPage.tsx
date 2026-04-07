@@ -1,6 +1,6 @@
 import type { ResidentActivity } from '../../data/mockData'
 import { useApiResource } from '../../lib/api'
-import { EmptyState, ErrorState, SectionHeader, SkeletonStackRows, SkeletonSurface, StatusPill, Surface } from '../../components/ui'
+import { EmptyState, SectionHeader, SkeletonStackRows, SkeletonSurface, StatusPill, Surface } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
 import { compareDateDesc } from '../../utils/helpers'
 
