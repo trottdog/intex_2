@@ -13,7 +13,7 @@ if str(REPO_ROOT) not in sys.path:
 import pandas as pd
 
 from ml.src.config.paths import PROCESSED_DATA_DIR, REPORTS_TABLES_DIR
-from ml.src.data.loaders import load_raw_tables, resolve_raw_data_dir
+from ml.src.data.loaders import describe_raw_source, load_raw_tables
 from ml.src.features.common_features import build_feature_catalog, save_dataset
 from ml.src.features.donor_features import build_campaign_features, build_supporter_features
 from ml.src.features.resident_features import (
@@ -28,7 +28,8 @@ def main() -> None:
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
-    tables = load_raw_tables(data_dir=resolve_raw_data_dir())
+    tables = load_raw_tables()
+    source_label = describe_raw_source(required_tables=tables.keys())
     datasets: dict[str, pd.DataFrame] = {
         "supporter_features": build_supporter_features(tables),
         "campaign_features": build_campaign_features(tables),
@@ -62,6 +63,7 @@ def main() -> None:
         index=False,
     )
 
+    print(f"Loaded raw ML tables from {source_label}")
     print(f"Generated {len(datasets)} processed datasets in {PROCESSED_DATA_DIR}")
     print(f"Wrote Phase 2 report tables to {REPORTS_TABLES_DIR}")
 

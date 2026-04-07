@@ -2045,6 +2045,13 @@ p {
   gap: 0.8rem;
 }
 
+.resident-grid > section:first-child {
+  border-color: rgba(47, 107, 103, 0.2);
+  background:
+    linear-gradient(135deg, rgba(47, 107, 103, 0.06), transparent 45%),
+    var(--surface);
+}
+
 .public-footer {
   display: flex;
   justify-content: space-between;

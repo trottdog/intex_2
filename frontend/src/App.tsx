@@ -47,6 +47,17 @@ import {
   impactSnapshotTableRow,
   impactSnapshotsUseMockColumns,
 } from './lib/impactSnapshots'
+import {
+  emptyMlPredictionFeed,
+  formatMlScore,
+  formatMlTimestamp,
+  getMlSignalLabel,
+  getMlSignalTone,
+  summarizeMlMetrics,
+  type MlEntityInsight,
+  type MlPipelineRunSummary,
+  type MlPredictionFeed,
+} from './lib/ml'
 import { fetchMe, loginRequest } from './lib/authApi'
 import { directorPhotos, siteImages } from './siteImages'
 
@@ -73,6 +84,13 @@ function asFiniteNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>
+  }
+  return {}
 }
 
 function formatAmount(value: unknown): string {
@@ -1655,6 +1673,12 @@ function DonorDashboardPage() {
     user?.supporterId != null ? `/supporters/${user.supporterId}/donations` : '/donations',
     [],
   )
+  const supporterInsights = useApiResource<MlEntityInsight[]>(
+    user?.supporterId != null ? `/ml/supporters/${user.supporterId}/insights` : '/ml/supporters/0/insights',
+    [],
+  )
+  const donorRetentionInsight = supporterInsights.data.find((item) => item.pipelineName === 'donor_retention')
+  const donorRetentionContext = asRecord(donorRetentionInsight?.prediction.context)
 
   return (
     <>
@@ -1679,6 +1703,45 @@ function DonorDashboardPage() {
         <StatCard label="Total gifts" value={String(donations.data.length)} />
         <StatCard label="Lifetime giving" value={formatAmount(donations.data.reduce((sum, d) => sum + asFiniteNumber(d.amount), 0))} />
       </div>
+      <Surface
+        title="Retention insight"
+        subtitle={
+          donorRetentionInsight
+            ? `${summarizeMlMetrics(donorRetentionInsight.metrics)}. Refreshed ${formatMlTimestamp(donorRetentionInsight.trainedAt)}.`
+            : 'The nightly donor-retention model will appear here once the refresh job has published a run.'
+        }
+      >
+        {supporterInsights.isLoading ? (
+          <SkeletonStackRows count={3} />
+        ) : supporterInsights.error ? (
+          <ErrorState title="Could not load donor insight" description={supporterInsights.error} />
+        ) : !donorRetentionInsight ? (
+          <EmptyState title="No donor insight yet" description="Once the nightly model refresh runs, this panel will show your latest retention signal and outreach recommendation." />
+        ) : (
+          <div className="stack-list">
+            <div className="stack-row">
+              <div>
+                <strong>Current stewardship signal</strong>
+                <p>{String(donorRetentionContext.recommended_action ?? 'Review your last gift and suggested follow-up timing.')}</p>
+              </div>
+              <div className="align-right">
+                <StatusPill tone={getMlSignalTone('donor_retention', donorRetentionInsight.prediction.predictionScore)}>
+                  {getMlSignalLabel('donor_retention', donorRetentionInsight.prediction.predictionScore)}
+                </StatusPill>
+                <p>{formatMlScore(donorRetentionInsight.prediction.predictionScore)}</p>
+              </div>
+            </div>
+            <div className="stack-row">
+              <strong>Last donation recency</strong>
+              <p>{String(donorRetentionContext.donation_recency_days ?? '—')} days</p>
+            </div>
+            <div className="stack-row">
+              <strong>Giving activity</strong>
+              <p>{String(donorRetentionContext.donation_count ?? '—')} recorded gifts</p>
+            </div>
+          </div>
+        )}
+      </Surface>
       <Surface title="Recent giving" subtitle="Your personal donation history.">
         {donations.data.length === 0 ? (
           <EmptyState title="No donations yet" description="Make your first gift to see it appear here." />
@@ -1801,6 +1864,11 @@ function AdminDashboardPage() {
   const residents = useApiResource<Resident[]>('/residents', [])
   const donations = useApiResource<Donation[]>('/donations', [])
   const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
+  const pipelineRuns = useApiResource<MlPipelineRunSummary[]>('/ml/pipelines', [])
+  const residentRiskFeed = useApiResource<MlPredictionFeed>(
+    '/ml/pipelines/resident_risk/predictions?limit=6',
+    emptyMlPredictionFeed('resident_risk'),
+  )
   const anyLoading = residents.isLoading || donations.isLoading || safehouses.isLoading
   const residentsScoped = useMemo(() => {
     if (!user) return residents.data
@@ -1811,6 +1879,17 @@ function AdminDashboardPage() {
     return filterSafehousesForSessionUser(user, safehouses.data)
   }, [user, safehouses.data])
   const highRiskResidents = residentsScoped.filter((resident) => resident.currentRiskLevel === 'High').length
+  const residentRiskPredictions = useMemo(() => {
+    const predictions = residentRiskFeed.data.predictions ?? []
+    const scopedSafehouseIds = user?.safehouseIds ?? []
+    if (user?.role === 'admin' && scopedSafehouseIds.length) {
+      return predictions.filter((prediction) =>
+        prediction.safehouseId != null && scopedSafehouseIds.includes(prediction.safehouseId),
+      )
+    }
+    return predictions
+  }, [residentRiskFeed.data.predictions, user])
+  const livePipelineCount = pipelineRuns.data.filter((run) => run.status === 'completed').length
 
   return (
     <>
@@ -1818,7 +1897,7 @@ function AdminDashboardPage() {
       <PageSection title="Admin dashboard" description="A calm command center for local-facility operations.">
       {anyLoading ? (
         <>
-          <div className="stat-grid">{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
+          <div className="stat-grid">{Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
           <div className="two-column-grid">
             <SkeletonSurface title="Recent activity"><SkeletonStackRows count={3} /></SkeletonSurface>
             <SkeletonSurface title="ML decision support"><SkeletonStackRows count={2} /></SkeletonSurface>
@@ -1839,6 +1918,7 @@ function AdminDashboardPage() {
         <StatCard label="Recent donations" value={String(donations.data.length)} />
         <StatCard label="Open safehouses" value={String(safehousesScoped.length)} />
         <StatCard label="High-risk residents" value={String(highRiskResidents)} />
+        <StatCard label="Live ML pipelines" value={String(livePipelineCount)} />
       </div>
       <div className="two-column-grid">
         <Surface title="Recent activity" subtitle="Use this area to keep the dashboard operational, not decorative.">
@@ -1857,13 +1937,45 @@ function AdminDashboardPage() {
             </div>
           </div>
         </Surface>
-        <Surface title="ML decision support" subtitle="One excellent ML integration belongs inside a real workflow.">
-          <div className="ml-panel">
-            <StatusPill tone="warning">Risk signal</StatusPill>
-            <h3>Resident LC-2026-001 shows elevated stabilization risk.</h3>
-            <p>Why: recent escalation incident, safety concerns during visitation, and unresolved follow-up actions.</p>
-            <p>Recommended action: review the intervention plan and confirm the next case conference agenda.</p>
-          </div>
+        <Surface
+          title="ML decision support"
+          subtitle={
+            residentRiskFeed.data.trainedAt
+              ? `${summarizeMlMetrics(residentRiskFeed.data.metrics)}. Refreshed ${formatMlTimestamp(residentRiskFeed.data.trainedAt)}.`
+              : 'Nightly retraining publishes the current resident-risk watchlist here.'
+          }
+        >
+          {residentRiskFeed.isLoading ? (
+            <SkeletonStackRows count={3} />
+          ) : residentRiskFeed.error ? (
+            <ErrorState title="Could not load risk watchlist" description={residentRiskFeed.error} />
+          ) : residentRiskPredictions.length === 0 ? (
+            <EmptyState title="No published risk watchlist yet" description="Run the nightly ML refresh to populate resident risk predictions for the dashboard." />
+          ) : (
+            <div className="stack-list">
+              {residentRiskPredictions.map((prediction) => {
+                const context = asRecord(prediction.context)
+                return (
+                  <div className="stack-row" key={prediction.entityKey}>
+                    <div>
+                      <strong>{String(context.case_control_no ?? prediction.entityLabel ?? prediction.entityKey)}</strong>
+                      <p>
+                        {String(context.assigned_social_worker ?? 'Assigned worker pending')}
+                        {' · '}
+                        {String(context.recommended_action ?? 'Review the case plan and recent follow-up items.')}
+                      </p>
+                    </div>
+                    <div className="align-right">
+                      <StatusPill tone={getMlSignalTone('resident_risk', prediction.predictionScore)}>
+                        {getMlSignalLabel('resident_risk', prediction.predictionScore)}
+                      </StatusPill>
+                      <p>{formatMlScore(prediction.predictionScore)}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </Surface>
       </div>
       </>
@@ -1987,6 +2099,7 @@ function CaseloadPage() {
 function ResidentDetailPage({ residentId }: { residentId: number }) {
   const { user } = useSession()
   const residentResource = useApiResource<Resident | null>(`/residents/${residentId}`, null)
+  const residentInsights = useApiResource<MlEntityInsight[]>(`/ml/residents/${residentId}/insights`, [])
 
   if (residentResource.isLoading) {
     return (
@@ -2001,6 +2114,8 @@ function ResidentDetailPage({ residentId }: { residentId: number }) {
   }
 
   const resident = residentResource.data
+  const residentRiskInsight = residentInsights.data.find((item) => item.pipelineName === 'resident_risk')
+  const reintegrationInsight = residentInsights.data.find((item) => item.pipelineName === 'reintegration_readiness')
 
   if (!resident) {
     return <PageSection title="Resident not found" description={residentResource.error ?? 'The selected resident could not be located.'}><EmptyState title="No resident found" description="Choose a resident from the caseload inventory." /></PageSection>
@@ -2053,6 +2168,46 @@ function ResidentDetailPage({ residentId }: { residentId: number }) {
         ))}
       </nav>
       <div className="two-column-grid resident-grid">
+        <Surface title="Decision support" subtitle="Latest nightly model outputs for this resident.">
+          {residentInsights.isLoading ? (
+            <SkeletonStackRows count={3} />
+          ) : residentInsights.error ? (
+            <ErrorState title="Could not load decision support" description={residentInsights.error} />
+          ) : !residentRiskInsight && !reintegrationInsight ? (
+            <EmptyState title="No resident insights yet" description="The nightly ML refresh will publish resident-specific risk and reintegration signals here." />
+          ) : (
+            <div className="stack-list">
+              {residentRiskInsight ? (
+                <div className="stack-row">
+                  <div>
+                    <strong>Resident risk</strong>
+                    <p>{String(asRecord(residentRiskInsight.prediction.context).recommended_action ?? 'Review the intervention plan and follow-up actions.')}</p>
+                  </div>
+                  <div className="align-right">
+                    <StatusPill tone={getMlSignalTone('resident_risk', residentRiskInsight.prediction.predictionScore)}>
+                      {getMlSignalLabel('resident_risk', residentRiskInsight.prediction.predictionScore)}
+                    </StatusPill>
+                    <p>{formatMlScore(residentRiskInsight.prediction.predictionScore)}</p>
+                  </div>
+                </div>
+              ) : null}
+              {reintegrationInsight ? (
+                <div className="stack-row">
+                  <div>
+                    <strong>Reintegration readiness</strong>
+                    <p>{String(asRecord(reintegrationInsight.prediction.context).recommended_action ?? 'Review reintegration milestones and family readiness.')}</p>
+                  </div>
+                  <div className="align-right">
+                    <StatusPill tone={getMlSignalTone('reintegration_readiness', reintegrationInsight.prediction.predictionScore)}>
+                      {getMlSignalLabel('reintegration_readiness', reintegrationInsight.prediction.predictionScore)}
+                    </StatusPill>
+                    <p>{formatMlScore(reintegrationInsight.prediction.predictionScore)}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </Surface>
         <Surface title="Case summary" subtitle="Core case classification and reintegration status.">
           <div className="stack-list">
             <div className="stack-row"><strong>Case status</strong><p>{resident.caseStatus}</p></div>
@@ -2316,6 +2471,10 @@ function CaseConferencesPage({ residentId }: { residentId: number }) {
 
 function DonorsPage() {
   const supporters = useApiResource<Supporter[]>('/supporters', [])
+  const donorRiskFeed = useApiResource<MlPredictionFeed>(
+    '/ml/pipelines/donor_retention/predictions?limit=8',
+    emptyMlPredictionFeed('donor_retention'),
+  )
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [showForm, setShowForm] = useState(false)
@@ -2408,6 +2567,37 @@ function DonorsPage() {
             asText(supporter.acquisitionChannel, '—'),
           ])}
         />
+        )}
+      </Surface>
+      <Surface
+        title="Retention watchlist"
+        subtitle={
+          donorRiskFeed.data.trainedAt
+            ? `${summarizeMlMetrics(donorRiskFeed.data.metrics)}. Refreshed ${formatMlTimestamp(donorRiskFeed.data.trainedAt)}.`
+            : 'Nightly donor-retention retraining publishes the latest supporter watchlist here.'
+        }
+      >
+        {donorRiskFeed.isLoading ? (
+          <SkeletonTable rows={5} cols={4} />
+        ) : donorRiskFeed.error ? (
+          <ErrorState title="Could not load retention watchlist" description={donorRiskFeed.error} />
+        ) : donorRiskFeed.data.predictions.length === 0 ? (
+          <EmptyState title="No retention watchlist yet" description="Run the nightly ML refresh to publish supporter lapse-risk predictions." />
+        ) : (
+          <DataTable
+            columns={['Supporter', 'Recommendation', 'Signal', 'Score']}
+            rows={donorRiskFeed.data.predictions.map((prediction) => {
+              const context = asRecord(prediction.context)
+              return [
+                asText(prediction.entityLabel, prediction.entityKey),
+                asText(context.recommended_action, 'Queue a stewardship touchpoint.'),
+                <StatusPill tone={getMlSignalTone('donor_retention', prediction.predictionScore)}>
+                  {getMlSignalLabel('donor_retention', prediction.predictionScore)}
+                </StatusPill>,
+                formatMlScore(prediction.predictionScore),
+              ]
+            })}
+          />
         )}
       </Surface>
     </PageSection>
@@ -2863,6 +3053,10 @@ function ReportsPage() {
 function OutreachPage() {
   const posts = useApiResource<SocialMediaPost[]>('/social-media-posts', [])
   const snapshots = useApiResource<PublicImpactSnapshot[]>('/public-impact-snapshots', [])
+  const socialConversionFeed = useApiResource<MlPredictionFeed>(
+    '/ml/pipelines/social_media_conversion/predictions?limit=6',
+    emptyMlPredictionFeed('social_media_conversion'),
+  )
   const [platformFilter, setPlatformFilter] = useState('All platforms')
   const filteredPosts = posts.data.filter((post) =>
     platformFilter === 'All platforms' ? true : post.platform === platformFilter,
@@ -2927,6 +3121,37 @@ function OutreachPage() {
           </div>
         </Surface>
       </div>
+      <Surface
+        title="Predicted donation-conversion leaders"
+        subtitle={
+          socialConversionFeed.data.trainedAt
+            ? `${summarizeMlMetrics(socialConversionFeed.data.metrics)}. Refreshed ${formatMlTimestamp(socialConversionFeed.data.trainedAt)}.`
+            : 'Nightly retraining publishes the highest-potential outreach content here.'
+        }
+      >
+        {socialConversionFeed.isLoading ? (
+          <SkeletonTable rows={4} cols={4} />
+        ) : socialConversionFeed.error ? (
+          <ErrorState title="Could not load outreach predictions" description={socialConversionFeed.error} />
+        ) : socialConversionFeed.data.predictions.length === 0 ? (
+          <EmptyState title="No outreach predictions yet" description="Run the nightly ML refresh to publish social conversion predictions." />
+        ) : (
+          <DataTable
+            columns={['Post', 'Recommendation', 'Signal', 'Score']}
+            rows={socialConversionFeed.data.predictions.map((prediction) => {
+              const context = asRecord(prediction.context)
+              return [
+                asText(prediction.entityLabel, prediction.entityKey),
+                asText(context.recommended_action, 'Reuse this content pattern in the next campaign brief.'),
+                <StatusPill tone={getMlSignalTone('social_media_conversion', prediction.predictionScore)}>
+                  {getMlSignalLabel('social_media_conversion', prediction.predictionScore)}
+                </StatusPill>,
+                formatMlScore(prediction.predictionScore),
+              ]
+            })}
+          />
+        )}
+      </Surface>
     </PageSection>
   )
 }
