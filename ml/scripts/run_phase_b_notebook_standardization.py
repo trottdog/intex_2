@@ -1,4 +1,4 @@
-"""Refresh standardized notebook deliverables."""
+"""Run Phase B notebook standardization outputs."""
 
 from __future__ import annotations
 
