@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
  * In production, VITE_API_BASE_URL must be set at build time (see `frontend/.env.production`).
@@ -52,14 +52,9 @@ export async function fetchJson<T>(path: string): Promise<T> {
   return (await response.json()) as T
 }
 
-export function useApiResource<T>(path: string, fallback: T) {
-  // Inline object/array fallbacks get a new reference every render; including them
-  // in the effect deps caused a fetch → setState → re-render → repeat storm.
-  const fallbackRef = useRef(fallback)
-  fallbackRef.current = fallback
-
+export function useApiResource<T>(path: string, emptyValue: T) {
   const [state, setState] = useState<ResourceState<T>>({
-    data: fallback,
+    data: emptyValue,
     isLoading: true,
     error: null,
     source: 'fallback',
@@ -69,48 +64,30 @@ export function useApiResource<T>(path: string, fallback: T) {
     let active = true
 
     async function run() {
-      const fb = fallbackRef.current
-      setState({
-        data: fb,
-        isLoading: true,
-        error: null,
-        source: 'fallback',
-      })
+      setState((prev) => ({ ...prev, isLoading: true, error: null }))
 
       try {
         const data = await fetchJson<T>(path)
-        if (!active) {
-          return
-        }
+        if (!active) return
 
-        setState({
-          data,
-          isLoading: false,
-          error: null,
-          source: 'live',
-        })
+        setState({ data, isLoading: false, error: null, source: 'live' })
       } catch (error) {
-        if (!active) {
-          return
-        }
+        if (!active) return
 
-        setState({
-          data: fallbackRef.current,
+        setState((prev) => ({
+          ...prev,
           isLoading: false,
           error:
             error instanceof Error
               ? error.message
-              : 'We could not reach the backend API. Showing the prepared frontend fallback.',
+              : 'Could not reach the API.',
           source: 'fallback',
-        })
+        }))
       }
     }
 
     void run()
-
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [path])
 
   return state

@@ -21,32 +21,20 @@ import {
   Surface,
 } from './components/ui'
 import {
-  mockCaseConferences,
-  mockDonationAllocations,
-  mockDonations,
-  mockEducationRecords,
-  mockHealthRecords,
-  mockHomeVisitations,
-  mockImpactSnapshots,
-  mockIncidentReports,
-  mockInKindItems,
-  mockInterventionPlans,
-  mockPartnerAssignments,
-  mockPartners,
-  mockProcessRecordings,
-  mockResidents,
-  mockSafehouseMetrics,
-  mockSafehouses,
-  mockSocialPosts,
-  mockSupporters,
-  impactDonationSummaryFallback,
-  impactMetricsFallback,
   type ImpactMetricsPublic,
   type PublicDonationSummary,
+  type PublicImpactSnapshot,
   type ResidentActivity,
   type Resident,
   type Safehouse,
   type Supporter,
+  type Donation,
+  type DonationAllocation,
+  type InKindItem,
+  type SocialMediaPost,
+  type SafehouseMetric,
+  type Partner,
+  type PartnerAssignment,
 } from './data/mockData'
 import { getApiBaseUrl, useApiResource } from './lib/api'
 import {
@@ -65,16 +53,8 @@ const impactCurrency = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 0,
 })
 
-/** Donor dashboard: pick mock supporter row by session `supporterId` from `/auth/me`. */
-function resolveMockSupporter(supporterId: number | undefined): { supporter: Supporter; usingFallback: boolean } {
-  if (supporterId != null) {
-    const found = mockSupporters.find((s) => s.supporterId === supporterId)
-    if (found) {
-      return { supporter: found, usingFallback: false }
-    }
-  }
-  return { supporter: mockSupporters[0], usingFallback: true }
-}
+const emptyImpactMetrics: ImpactMetricsPublic = { donationCount: 0, totalDonationAmount: 0, residentCount: 0, safehouseCount: 0 }
+const emptyDonationSummary: PublicDonationSummary = { summaries: [] }
 
 function filterResidentsForSessionUser(user: SessionUser, residents: Resident[]): Resident[] {
   if (user.role === 'super-admin') {
@@ -317,42 +297,22 @@ function resolveRoute(pathname: string, role: UserRole) {
     {
       pattern: '/app/admin/residents/:residentId/education-records',
       render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Education records',
-          'School readiness and academic progress touchpoints.',
-          mockEducationRecords,
-        ),
+        <ResidentSubpageLive residentId={residentId} apiPath="education-records" title="Education records" description="School readiness and academic progress touchpoints." />,
     },
     {
       pattern: '/app/admin/residents/:residentId/health-wellbeing-records',
       render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Health and wellbeing',
-          'Physical and wellbeing records for longitudinal care.',
-          mockHealthRecords,
-        ),
+        <ResidentSubpageLive residentId={residentId} apiPath="health-wellbeing-records" title="Health and wellbeing" description="Physical and wellbeing records for longitudinal care." />,
     },
     {
       pattern: '/app/admin/residents/:residentId/incident-reports',
       render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Incident reports',
-          'Severity, response, and follow-up visibility.',
-          mockIncidentReports,
-        ),
+        <ResidentSubpageLive residentId={residentId} apiPath="incident-reports" title="Incident reports" description="Severity, response, and follow-up visibility." />,
     },
     {
       pattern: '/app/admin/residents/:residentId/intervention-plans',
       render: (residentId: number) =>
-        renderResidentSubpage(
-          residentId,
-          'Intervention plans',
-          'Active plans, due dates, and status review.',
-          mockInterventionPlans,
-        ),
+        <ResidentSubpageLive residentId={residentId} apiPath="intervention-plans" title="Intervention plans" description="Active plans, due dates, and status review." />,
     },
   ]
 
@@ -823,11 +783,11 @@ function HomePage() {
 }
 
 function ImpactPage() {
-  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', impactMetricsFallback)
-  const safehouses = useApiResource('/public/impact/safehouses', mockSafehouses)
+  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics)
+  const safehouses = useApiResource<Safehouse[]>('/public/impact/safehouses', [])
   const donationSummary = useApiResource<PublicDonationSummary>(
     '/public/impact/donation-summary',
-    impactDonationSummaryFallback,
+    emptyDonationSummary,
   )
 
   return (
@@ -1594,29 +1554,20 @@ function ForbiddenPage() {
 
 function DonorDashboardPage() {
   const { user } = useSession()
-  const { supporter: donor, usingFallback } = resolveMockSupporter(
-    user?.role === 'donor' ? user.supporterId : undefined,
+  const donations = useApiResource<Donation[]>(
+    user?.supporterId != null ? `/supporters/${user.supporterId}/donations` : '/donations',
+    [],
   )
-  const donations = mockDonations.filter((donation) => donation.supporterId === donor.supporterId)
 
   return (
     <>
       <SessionWelcomeBanner />
       <PageSection title="Donor overview" description="A transparent, personal summary of giving and impact.">
-      {usingFallback ? (
-        <Surface
-          title="Demo data mapping"
-          subtitle={
-            user?.supporterId != null
-              ? `No mock supporter row matches supporterId ${user.supporterId} from the API — showing sample record #${donor.supporterId}.`
-              : 'Your session has no supporterId yet — showing sample donor data until the account is linked in the database.'
-          }
-        >
-          <p style={{ margin: 0 }}>
-            When <code>/auth/me</code> returns a <code>supporterId</code> that exists in the prepared CSV-backed mock set, this dashboard personalizes to that donor.
-          </p>
-        </Surface>
-      ) : null}
+      {donations.isLoading ? (
+        <LoadingState title="Loading your donations" description="Fetching donation history from the API." />
+      ) : (
+      <>
+      {donations.error ? <ErrorState title="Could not load donations" description={donations.error} /> : null}
       <div className="donor-dashboard-cta">
         <div>
           <h2>Ready to give again?</h2>
@@ -1625,35 +1576,26 @@ function DonorDashboardPage() {
         <AppLink to="/app/donor/donate" className="primary-button">Donate now</AppLink>
       </div>
       <div className="stat-grid">
-        <StatCard label="Total gifts" value={String(donations.length)} />
-        <StatCard label="Lifetime giving" value={`$${donations.reduce((sum, donation) => sum + donation.amount, 0).toLocaleString()}`} />
-        <StatCard label="Current focus" value="Emergency care and healing" />
+        <StatCard label="Total gifts" value={String(donations.data.length)} />
+        <StatCard label="Lifetime giving" value={`$${donations.data.reduce((sum, d) => sum + d.amount, 0).toLocaleString()}`} />
       </div>
-      <div className="two-column-grid">
-        <Surface title="Recent giving" subtitle="Personal donation history should feel easy to understand.">
+      <Surface title="Recent giving" subtitle="Your personal donation history.">
+        {donations.data.length === 0 ? (
+          <EmptyState title="No donations yet" description="Make your first gift to see it appear here." />
+        ) : (
           <DataTable
             columns={['Date', 'Campaign', 'Amount', 'Detail']}
-            rows={donations.map((donation) => [
+            rows={donations.data.map((donation) => [
               donation.donationDate,
               donation.campaignName,
               `$${donation.amount.toLocaleString()}`,
               <AppLink to={`/app/donor/history/${donation.donationId}`}>Open</AppLink>,
             ])}
           />
-        </Surface>
-        <Surface title="Impact of your giving" subtitle="Connect donor, donation, allocation, and outcomes.">
-          <div className="stack-list">
-            <div className="stack-row">
-              <strong>Stabilization support</strong>
-              <p>Your recent giving helped fund emergency care coverage and staff-led follow-up.</p>
-            </div>
-            <div className="stack-row">
-              <strong>Education continuity</strong>
-              <p>Donations also support school readiness, tutoring, and reintegration preparation.</p>
-            </div>
-          </div>
-        </Surface>
-      </div>
+        )}
+      </Surface>
+      </>
+      )}
     </PageSection>
     </>
   )
@@ -1661,15 +1603,24 @@ function DonorDashboardPage() {
 
 function DonorHistoryPage() {
   const { user } = useSession()
-  const { supporter: donor } = resolveMockSupporter(user?.role === 'donor' ? user.supporterId : undefined)
-  const donations = mockDonations.filter((donation) => donation.supporterId === donor.supporterId)
+  const donations = useApiResource<Donation[]>(
+    user?.supporterId != null ? `/supporters/${user.supporterId}/donations` : '/donations',
+    [],
+  )
 
   return (
-    <PageSection title="Giving history" description="Donation records, allocations, and a clean path to drill into details.">
-      <Surface title="History" subtitle="This table mirrors the donor-friendly view of contribution history.">
+    <PageSection title="Giving history" description="Donation records and details.">
+      {donations.isLoading ? (
+        <LoadingState title="Loading donation history" description="Fetching your giving history from the API." />
+      ) : donations.error ? (
+        <ErrorState title="Could not load history" description={donations.error} />
+      ) : donations.data.length === 0 ? (
+        <EmptyState title="No donations yet" description="Your giving history will appear here." />
+      ) : (
+      <Surface title="History">
         <DataTable
           columns={['Date', 'Type', 'Campaign', 'Amount', 'Detail']}
-          rows={donations.map((donation) => [
+          rows={donations.data.map((donation) => [
             donation.donationDate,
             donation.donationType,
             donation.campaignName,
@@ -1678,6 +1629,7 @@ function DonorHistoryPage() {
           ])}
         />
       </Surface>
+      )}
     </PageSection>
   )
 }
@@ -1687,70 +1639,75 @@ function DonorDonationDetailPage({ donationId }: { donationId: number }) {
 }
 
 function DonorImpactPage() {
+  const metrics = useApiResource<ImpactMetricsPublic>('/public/impact', emptyImpactMetrics)
   return (
-    <PageSection title="Impact of giving" description="Use this space to make contribution outcomes tangible and easy to explain.">
+    <PageSection title="Impact of giving" description="See how your contributions translate into real outcomes.">
+      {metrics.isLoading ? (
+        <LoadingState title="Loading impact data" description="Fetching impact metrics from the API." />
+      ) : (
+      <>
+      {metrics.error ? <ErrorState title="Could not load impact" description={metrics.error} /> : null}
       <div className="stat-grid">
-        <StatCard label="Residents supported" value="17" />
-        <StatCard label="Programs touched" value="3" />
-        <StatCard label="This quarter's focus" value="Safehouse stability" />
+        <StatCard label="Residents supported" value={String(metrics.data.residentCount)} />
+        <StatCard label="Active safehouses" value={String(metrics.data.safehouseCount)} />
+        <StatCard label="Total donations" value={String(metrics.data.donationCount)} />
       </div>
-      <Surface title="Interpretation" subtitle="This section should stay human, clear, and donor-friendly.">
-        <p>
-          Your giving supports care continuity, education readiness, and safehouse operations. The donor portal should never feel like an admin report; it should feel like thoughtful stewardship.
-        </p>
-      </Surface>
+      </>
+      )}
     </PageSection>
   )
 }
 
 function DonorProfilePage() {
   const { user } = useSession()
-  const { supporter: donor } = resolveMockSupporter(user?.role === 'donor' ? user.supporterId : undefined)
+  const supporter = useApiResource<Supporter | null>(
+    user?.supporterId != null ? `/supporters/${user.supporterId}` : '/supporters/me',
+    null,
+  )
 
   return (
     <PageSection title="Profile" description="A lightweight self-service profile for donor contact and preference updates.">
-      <Surface title="Profile settings" subtitle="This should eventually save through the supporter profile workflow.">
+      {supporter.isLoading ? (
+        <LoadingState title="Loading profile" description="Fetching your supporter profile." />
+      ) : supporter.error ? (
+        <ErrorState title="Could not load profile" description={supporter.error} />
+      ) : (
+      <Surface title="Profile settings" subtitle="Update your contact information and preferences.">
         <form className="form-grid">
           <label>
             Name
-            <input defaultValue={donor.displayName} />
+            <input defaultValue={supporter.data?.displayName ?? user?.fullName ?? ''} />
           </label>
           <label>
             Email
-            <input defaultValue={donor.email} />
+            <input defaultValue={supporter.data?.email ?? user?.email ?? ''} />
           </label>
           <label>
             Region
-            <input defaultValue={donor.region} />
-          </label>
-          <label>
-            Acquisition channel
-            <input defaultValue={donor.acquisitionChannel} />
+            <input defaultValue={supporter.data?.region ?? ''} />
           </label>
           <button className="primary-button full-span" type="button">
             Save changes
           </button>
         </form>
       </Surface>
+      )}
     </PageSection>
   )
 }
 
 function AdminDashboardPage() {
   const { user } = useSession()
-  const residents = useApiResource('/residents', mockResidents)
-  const donations = useApiResource('/donations', mockDonations)
-  const safehouses = useApiResource('/safehouses', mockSafehouses)
+  const residents = useApiResource<Resident[]>('/residents', [])
+  const donations = useApiResource<Donation[]>('/donations', [])
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
+  const anyLoading = residents.isLoading || donations.isLoading || safehouses.isLoading
   const residentsScoped = useMemo(() => {
-    if (!user) {
-      return residents.data
-    }
+    if (!user) return residents.data
     return filterResidentsForSessionUser(user, residents.data)
   }, [user, residents.data])
   const safehousesScoped = useMemo(() => {
-    if (!user) {
-      return safehouses.data
-    }
+    if (!user) return safehouses.data
     return filterSafehousesForSessionUser(user, safehouses.data)
   }, [user, safehouses.data])
   const highRiskResidents = residentsScoped.filter((resident) => resident.currentRiskLevel === 'High').length
@@ -1759,21 +1716,23 @@ function AdminDashboardPage() {
     <>
       <SessionWelcomeBanner />
       <PageSection title="Admin dashboard" description="A calm command center for local-facility operations.">
+      {anyLoading ? (
+        <LoadingState title="Loading dashboard" description="Fetching residents, donations, and safehouses from the API." />
+      ) : (
+      <>
+      {residents.error || donations.error || safehouses.error ? (
+        <ErrorState title="Some data could not be loaded" description={residents.error || donations.error || safehouses.error || ''} />
+      ) : null}
       {user?.role === 'admin' && user.safehouseIds?.length ? (
-        <Surface
-          title="Facility scope"
-          subtitle={`Showing residents and safehouses for safehouse id(s): ${user.safehouseIds.join(', ')}.`}
-        >
-          <p style={{ margin: 0 }}>
-            SuperAdmin accounts see all facilities; facility staff see only assignments from <code>/auth/me</code> <code>safehouseIds</code>.
-          </p>
+        <Surface title="Facility scope" subtitle={`Showing data for safehouse id(s): ${user.safehouseIds.join(', ')}.`}>
+          <p style={{ margin: 0 }}>SuperAdmin accounts see all facilities; staff see only their assigned safehouses.</p>
         </Surface>
       ) : null}
       <div className="stat-grid">
-        <StatCard label="Active residents" value={String(residentsScoped.filter((resident) => resident.caseStatus === 'Active').length)} hint="Core care workload" />
-        <StatCard label="Recent donations" value={String(donations.data.length)} hint="Read-heavy backend routes are ready" />
-        <StatCard label="Open safehouses" value={String(safehousesScoped.length)} hint="Operations surface" />
-        <StatCard label="High-risk residents" value={String(highRiskResidents)} hint="Ideal first ML workflow" />
+        <StatCard label="Active residents" value={String(residentsScoped.filter((r) => r.caseStatus === 'Active').length)} />
+        <StatCard label="Recent donations" value={String(donations.data.length)} />
+        <StatCard label="Open safehouses" value={String(safehousesScoped.length)} />
+        <StatCard label="High-risk residents" value={String(highRiskResidents)} />
       </div>
       <div className="two-column-grid">
         <Surface title="Recent activity" subtitle="Use this area to keep the dashboard operational, not decorative.">
@@ -1801,6 +1760,8 @@ function AdminDashboardPage() {
           </div>
         </Surface>
       </div>
+      </>
+      )}
     </PageSection>
     </>
   )
@@ -1808,8 +1769,8 @@ function AdminDashboardPage() {
 
 function CaseloadPage() {
   const { user } = useSession()
-  const residents = useApiResource('/residents', mockResidents)
-  const safehouses = useApiResource('/safehouses', mockSafehouses)
+  const residents = useApiResource<Resident[]>('/residents', [])
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -1918,10 +1879,16 @@ function CaseloadPage() {
 
 function ResidentDetailPage({ residentId }: { residentId: number }) {
   const { user } = useSession()
-  const resident = mockResidents.find((item) => item.residentId === residentId)
+  const residentResource = useApiResource<Resident | null>(`/residents/${residentId}`, null)
+
+  if (residentResource.isLoading) {
+    return <PageSection title="Loading resident" description=""><LoadingState title="Loading resident" description="Fetching resident record from the API." /></PageSection>
+  }
+
+  const resident = residentResource.data
 
   if (!resident) {
-    return <PageSection title="Resident not found" description="The selected resident could not be located."><EmptyState title="No resident found" description="Choose a resident from the caseload inventory." /></PageSection>
+    return <PageSection title="Resident not found" description={residentResource.error ?? 'The selected resident could not be located.'}><EmptyState title="No resident found" description="Choose a resident from the caseload inventory." /></PageSection>
   }
 
   if (user && !canSessionUserAccessResident(user, resident)) {
@@ -2072,17 +2039,21 @@ function ResidentDetailPage({ residentId }: { residentId: number }) {
   )
 }
 
-function renderResidentSubpage(residentId: number, title: string, description: string, source: ResidentActivity[]) {
-  const items = source.filter((item) => item.residentId === residentId)
+function ResidentSubpageLive({ residentId, apiPath, title, description }: { residentId: number; apiPath: string; title: string; description: string }) {
+  const resource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/${apiPath}`, [])
 
   return (
     <PageSection title={title} description={description}>
-      {items.length === 0 ? (
+      {resource.isLoading ? (
+        <LoadingState title={`Loading ${title.toLowerCase()}`} description="Fetching records from the API." />
+      ) : resource.error ? (
+        <ErrorState title={`Could not load ${title.toLowerCase()}`} description={resource.error} />
+      ) : resource.data.length === 0 ? (
         <EmptyState title="No records yet" description="This resident does not have entries in this section yet." />
       ) : (
-        <Surface title={title} subtitle="These records reflect the route-ready resident subresource design.">
+        <Surface title={title}>
           <div className="stack-list">
-            {items.map((item) => (
+            {resource.data.map((item) => (
               <div className="stack-row" key={item.id}>
                 <div>
                   <strong>{item.title}</strong>
@@ -2102,7 +2073,10 @@ function renderResidentSubpage(residentId: number, title: string, description: s
 }
 
 function ProcessRecordingsPage({ residentId }: { residentId: number }) {
-  const items = mockProcessRecordings.filter((r) => r.residentId === residentId)
+  const resource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/process-recordings`, [])
+  if (resource.isLoading) return <PageSection title="Process recordings" description=""><LoadingState title="Loading recordings" description="Fetching process recordings from the API." /></PageSection>
+  if (resource.error) return <PageSection title="Process recordings" description=""><ErrorState title="Could not load recordings" description={resource.error} /></PageSection>
+  const items = resource.data
   return (
     <PageSection title="Process recordings" description="Counseling session history for this resident, displayed chronologically.">
       {items.length === 0 ? (
@@ -2146,8 +2120,11 @@ function ProcessRecordingsPage({ residentId }: { residentId: number }) {
 }
 
 function HomeVisitationsPage({ residentId }: { residentId: number }) {
-  const visits = mockHomeVisitations.filter((r) => r.residentId === residentId)
-  const conferences = mockCaseConferences.filter((r) => r.residentId === residentId)
+  const visitResource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/home-visitations`, [])
+  const confResource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/case-conferences`, [])
+  if (visitResource.isLoading || confResource.isLoading) return <PageSection title="Home visitations & case conferences" description=""><LoadingState title="Loading" description="Fetching visit and conference records." /></PageSection>
+  const visits = visitResource.data
+  const conferences = confResource.data
   return (
     <PageSection title="Home visitations & case conferences" description="Field visits and conference history for this resident.">
       <SectionHeader title="Home & field visits" description="Log of all home visits, follow-ups, and safety assessments." />
@@ -2223,7 +2200,7 @@ function CaseConferencesPage({ residentId }: { residentId: number }) {
 }
 
 function DonorsPage() {
-  const supporters = useApiResource('/supporters', mockSupporters)
+  const supporters = useApiResource<Supporter[]>('/supporters', [])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [showForm, setShowForm] = useState(false)
@@ -2322,7 +2299,7 @@ function DonorsPage() {
 }
 
 function ContributionsPage() {
-  const donations = useApiResource('/donations', mockDonations)
+  const donations = useApiResource<Donation[]>('/donations', [])
   const [campaignFilter, setCampaignFilter] = useState('All campaigns')
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -2429,23 +2406,28 @@ function ContributionDetailPage({ donationId }: { donationId: number }) {
 }
 
 function ContributionDetail({ donationId, donorMode = false }: { donationId: number; donorMode?: boolean }) {
-  const donation = mockDonations.find((item) => item.donationId === donationId)
+  const donationResource = useApiResource<Donation | null>(`/donations/${donationId}`, null)
+  const allocations = useApiResource<DonationAllocation[]>(`/donations/${donationId}/allocations`, [])
+  const items = useApiResource<InKindItem[]>(`/donations/${donationId}/in-kind-items`, [])
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
 
+  if (donationResource.isLoading) {
+    return <PageSection title="Loading donation" description=""><LoadingState title="Loading donation details" description="Fetching donation data from the API." /></PageSection>
+  }
+
+  const donation = donationResource.data
   if (!donation) {
     return (
-      <PageSection title="Donation not found" description="The selected donation does not exist in the current dataset.">
+      <PageSection title="Donation not found" description={donationResource.error ?? 'The selected donation does not exist.'}>
         <EmptyState title="No donation found" description="Open a donation from the history or contribution list." />
       </PageSection>
     )
   }
 
-  const allocations = mockDonationAllocations.filter((item) => item.donationId === donationId)
-  const items = mockInKindItems.filter((item) => item.donationId === donationId)
-
   return (
     <PageSection
       title={donorMode ? 'Donation detail' : `Contribution ${donation.donationId}`}
-      description="This detail view should always show the relationship between contribution metadata, allocations, and any in-kind items."
+      description="Contribution metadata, allocations, and any in-kind items."
     >
       <div className="stat-grid">
         <StatCard label="Campaign" value={donation.campaignName} />
@@ -2453,28 +2435,30 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
         <StatCard label="Impact unit" value={donation.impactUnit} />
       </div>
       <div className="two-column-grid">
-        <Surface title="Allocations" subtitle="Nested under `donations/{donationId}/allocations`.">
-          {allocations.length === 0 ? (
+        <Surface title="Allocations">
+          {allocations.isLoading ? <LoadingState title="Loading allocations" description="" /> :
+          allocations.data.length === 0 ? (
             <EmptyState title="No allocations" description="No program allocations are recorded for this donation yet." />
           ) : (
             <DataTable
               columns={['Program area', 'Safehouse', 'Amount', 'Date']}
-              rows={allocations.map((allocation) => [
+              rows={allocations.data.map((allocation) => [
                 allocation.programArea,
-                mockSafehouses.find((safehouse) => safehouse.safehouseId === allocation.safehouseId)?.name ?? `Safehouse ${allocation.safehouseId}`,
+                safehouses.data.find((sh) => sh.safehouseId === allocation.safehouseId)?.name ?? `Safehouse ${allocation.safehouseId}`,
                 `$${allocation.amountAllocated.toLocaleString()}`,
                 allocation.allocationDate,
               ])}
             />
           )}
         </Surface>
-        <Surface title="In-kind items" subtitle="Nested under `donations/{donationId}/in-kind-items`.">
-          {items.length === 0 ? (
+        <Surface title="In-kind items">
+          {items.isLoading ? <LoadingState title="Loading items" description="" /> :
+          items.data.length === 0 ? (
             <EmptyState title="No in-kind items" description="This donation does not currently have in-kind line items." />
           ) : (
             <DataTable
               columns={['Item', 'Category', 'Quantity']}
-              rows={items.map((item) => [item.itemName, item.itemCategory, `${item.quantity} ${item.unitOfMeasure}`])}
+              rows={items.data.map((item) => [item.itemName, item.itemCategory, `${item.quantity} ${item.unitOfMeasure}`])}
             />
           )}
         </Surface>
@@ -2485,12 +2469,10 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
 
 function SafehousesPage() {
   const { user } = useSession()
-  const safehouses = useApiResource('/safehouses', mockSafehouses)
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
   const [regionFilter, setRegionFilter] = useState('All regions')
   const scoped = useMemo(() => {
-    if (!user) {
-      return safehouses.data
-    }
+    if (!user) return safehouses.data
     return filterSafehousesForSessionUser(user, safehouses.data)
   }, [user, safehouses.data])
   const regions = Array.from(new Set(scoped.map((safehouse) => safehouse.region)))
@@ -2543,11 +2525,16 @@ function SafehousesPage() {
 
 function SafehouseDetailPage({ safehouseId }: { safehouseId: number }) {
   const { user } = useSession()
-  const safehouse = mockSafehouses.find((item) => item.safehouseId === safehouseId)
-  const metrics = mockSafehouseMetrics.filter((item) => item.safehouseId === safehouseId)
+  const safehouseResource = useApiResource<Safehouse | null>(`/safehouses/${safehouseId}`, null)
+  const metrics = useApiResource<SafehouseMetric[]>(`/safehouses/${safehouseId}/metrics`, [])
 
+  if (safehouseResource.isLoading) {
+    return <PageSection title="Loading safehouse" description=""><LoadingState title="Loading safehouse" description="Fetching facility data from the API." /></PageSection>
+  }
+
+  const safehouse = safehouseResource.data
   if (!safehouse) {
-    return <PageSection title="Safehouse not found" description="The selected facility could not be located."><EmptyState title="No safehouse found" description="Choose a facility from the safehouse list." /></PageSection>
+    return <PageSection title="Safehouse not found" description={safehouseResource.error ?? 'The selected facility could not be located.'}><EmptyState title="No safehouse found" description="Choose a facility from the safehouse list." /></PageSection>
   }
 
   if (user && !canSessionUserAccessSafehouse(user, safehouseId)) {
@@ -2562,35 +2549,43 @@ function SafehouseDetailPage({ safehouseId }: { safehouseId: number }) {
   }
 
   return (
-    <PageSection title={safehouse.name} description="Monthly metrics are a meaningful subresource and should be visible in the facility detail.">
+    <PageSection title={safehouse.name} description="Facility occupancy and monthly metrics.">
       <div className="stat-grid">
         <StatCard label="Occupancy" value={`${safehouse.currentOccupancy}/${safehouse.capacityGirls}`} />
         <StatCard label="Region" value={safehouse.region} />
         <StatCard label="Status" value={safehouse.status} />
       </div>
-      <Surface title="Monthly metrics" subtitle="These metrics come from the safehouse monthly metrics route family.">
+      <Surface title="Monthly metrics">
+        {metrics.isLoading ? <LoadingState title="Loading metrics" description="" /> :
+        metrics.data.length === 0 ? <EmptyState title="No metrics" description="No monthly metrics have been recorded." /> : (
         <DataTable
           columns={['Month', 'Active residents', 'Staff count', 'School enrollment rate']}
-          rows={metrics.map((metric) => [
+          rows={metrics.data.map((metric) => [
             metric.reportMonth,
             metric.activeResidents.toString(),
             metric.staffCount.toString(),
             `${Math.round(metric.schoolEnrollmentRate * 100)}%`,
           ])}
         />
+        )}
       </Surface>
     </PageSection>
   )
 }
 
 function PartnersPage() {
-  const partners = useApiResource('/partners', mockPartners)
-  const assignments = useApiResource('/partner-assignments', mockPartnerAssignments)
+  const partners = useApiResource<Partner[]>('/partners', [])
+  const assignments = useApiResource<PartnerAssignment[]>('/partner-assignments', [])
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
+
+  const anyLoading = partners.isLoading || assignments.isLoading || safehouses.isLoading
 
   return (
-    <PageSection title="Partners" description="Partner visibility should include assignment context, not just partner rows in isolation.">
+    <PageSection title="Partners" description="Partner relationships and facility assignments.">
+      {anyLoading ? <LoadingState title="Loading partners" description="Fetching partner data from the API." /> : (
       <div className="two-column-grid">
-        <Surface title="Partner directory" subtitle="Current partner relationships and status.">
+        <Surface title="Partner directory">
+          {partners.data.length === 0 ? <EmptyState title="No partners" description="No partners have been registered yet." /> : (
           <DataTable
             columns={['Partner', 'Type', 'Role', 'Status']}
             rows={partners.data.map((partner) => [
@@ -2600,148 +2595,130 @@ function PartnersPage() {
               <StatusPill tone="success">{partner.status}</StatusPill>,
             ])}
           />
+          )}
         </Surface>
-        <Surface title="Assignments" subtitle="Assignments connect partners to facilities or workflows.">
+        <Surface title="Assignments">
+          {assignments.data.length === 0 ? <EmptyState title="No assignments" description="No partner-safehouse assignments yet." /> : (
           <DataTable
             columns={['Partner', 'Safehouse', 'Assignment', 'Status']}
             rows={assignments.data.map((assignment) => [
-              partners.data.find((partner) => partner.partnerId === assignment.partnerId)?.partnerName ?? `Partner ${assignment.partnerId}`,
-              mockSafehouses.find((safehouse) => safehouse.safehouseId === assignment.safehouseId)?.name ?? `Safehouse ${assignment.safehouseId}`,
+              partners.data.find((p) => p.partnerId === assignment.partnerId)?.partnerName ?? `Partner ${assignment.partnerId}`,
+              safehouses.data.find((sh) => sh.safehouseId === assignment.safehouseId)?.name ?? `Safehouse ${assignment.safehouseId}`,
               assignment.assignmentType,
               <StatusPill tone="success">{assignment.status}</StatusPill>,
             ])}
           />
+          )}
         </Surface>
       </div>
+      )}
     </PageSection>
   )
 }
 
-const donationTrendData = [
-  { month: 'Oct 2025', amount: 12400, donors: 38 },
-  { month: 'Nov 2025', amount: 18900, donors: 54 },
-  { month: 'Dec 2025', amount: 34200, donors: 91 },
-  { month: 'Jan 2026', amount: 15600, donors: 44 },
-  { month: 'Feb 2026', amount: 19800, donors: 61 },
-  { month: 'Mar 2026', amount: 22500, donors: 70 },
-  { month: 'Apr 2026', amount: 9100, donors: 29 },
-]
-
-const safehousePerformanceData = [
-  { name: 'Lighthouse Cebu',   active: 18, reintegrated: 4, schoolEnrollment: '94%', riskHigh: 2 },
-  { name: 'Lighthouse Davao',  active: 16, reintegrated: 6, schoolEnrollment: '88%', riskHigh: 3 },
-  { name: 'Sanctuary Makati',  active: 14, reintegrated: 3, schoolEnrollment: '92%', riskHigh: 1 },
-  { name: 'Hope Haven Manila', active: 20, reintegrated: 7, schoolEnrollment: '85%', riskHigh: 4 },
-]
-
-const reintegrationData = [
-  { quarter: 'Q2 2025', placed: 5,  successAt90d: 5,  rate: '100%' },
-  { quarter: 'Q3 2025', placed: 7,  successAt90d: 6,  rate: '86%' },
-  { quarter: 'Q4 2025', placed: 9,  successAt90d: 8,  rate: '89%' },
-  { quarter: 'Q1 2026', placed: 6,  successAt90d: 5,  rate: '83%' },
-]
-
-const annualAccomplishmentData = [
-  { service: 'Caring',   beneficiaries: 68, sessions: 824, outcomes: 'Stable shelter, daily needs, medical care' },
-  { service: 'Healing',  beneficiaries: 61, sessions: 312, outcomes: 'Counseling completion, trauma reduction reported' },
-  { service: 'Teaching', beneficiaries: 54, sessions: 490, outcomes: 'School enrollment, academic milestone completion' },
-]
+type DonationTrend = { month: string; amount: number; donors: number }
+type ReintegrationStat = { quarter: string; placed: number; successAt90d: number; rate: string }
+type AccomplishmentRow = { service: string; beneficiaries: number; sessions: number; outcomes: string }
+type OutcomeMetric = { metric: string; currentValue: string; change: string; notes: string }
 
 function ReportsPage() {
-  const impactSnapshots = useApiResource('/public-impact-snapshots', mockImpactSnapshots)
+  const impactSnapshots = useApiResource<PublicImpactSnapshot[]>('/public-impact-snapshots', [])
+  const donations = useApiResource<Donation[]>('/donations', [])
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
+  const residents = useApiResource<Resident[]>('/residents', [])
+  const donationTrends = useApiResource<DonationTrend[]>('/reports/donation-trends', [])
+  const reintegrationStats = useApiResource<ReintegrationStat[]>('/reports/reintegration', [])
+  const accomplishments = useApiResource<AccomplishmentRow[]>('/reports/accomplishments', [])
+  const outcomeMetrics = useApiResource<OutcomeMetric[]>('/reports/outcome-metrics', [])
+
   const useMockStyleSnapshotColumns = impactSnapshotsUseMockColumns(impactSnapshots.data)
   const snapshotColumns = useMockStyleSnapshotColumns
     ? [...IMPACT_SNAPSHOT_COLUMNS_MOCK]
     : [...IMPACT_SNAPSHOT_COLUMNS_API]
-  const totalDonations = donationTrendData.reduce((sum, row) => sum + row.amount, 0)
-  const totalDonors = donationTrendData.reduce((sum, row) => sum + row.donors, 0)
-  const totalReintegrated = reintegrationData.reduce((sum, row) => sum + row.placed, 0)
+
+  const anyLoading = impactSnapshots.isLoading || donations.isLoading || safehouses.isLoading || residents.isLoading
 
   return (
-    <PageSection title="Reports and analytics" description="Structured reporting aligned with the Annual Accomplishment Report format used by Philippine social welfare agencies.">
+    <PageSection title="Reports and analytics" description="Aggregated insights and trends for decision-making.">
+      {anyLoading ? (
+        <LoadingState title="Loading reports" description="Fetching report data from the API." />
+      ) : (
+      <>
       <div className="stat-grid">
-        <StatCard label="Total donations (7 mo)" value={`$${totalDonations.toLocaleString()}`} hint="Across all campaigns" />
-        <StatCard label="Unique donors (7 mo)" value={String(totalDonors)} hint="Active giving community" />
-        <StatCard label="Residents reintegrated" value={String(totalReintegrated)} hint="Last 4 quarters" />
-        <StatCard label="Published snapshots" value={String(impactSnapshots.data.length)} hint="Public-facing impact" />
+        <StatCard label="Total donations" value={`$${donations.data.reduce((s, d) => s + d.amount, 0).toLocaleString()}`} />
+        <StatCard label="Total donors" value={String(new Set(donations.data.map((d) => d.supporterId)).size)} />
+        <StatCard label="Active residents" value={String(residents.data.filter((r) => r.caseStatus === 'Active').length)} />
+        <StatCard label="Published snapshots" value={String(impactSnapshots.data.length)} />
       </div>
 
-      <Surface title="Donation trends" subtitle="Monthly giving volume and unique donor counts over the past seven months.">
+      <Surface title="Donation trends">
+        {donationTrends.isLoading ? <LoadingState title="Loading trends" description="" /> :
+        donationTrends.data.length === 0 ? <EmptyState title="No trend data" description="Donation trend data will appear once the API provides it." /> : (
         <DataTable
           columns={['Month', 'Total donated', 'Unique donors']}
-          rows={donationTrendData.map((row) => [
-            row.month,
-            `$${row.amount.toLocaleString()}`,
-            String(row.donors),
-          ])}
+          rows={donationTrends.data.map((row) => [row.month, `$${row.amount.toLocaleString()}`, String(row.donors)])}
         />
+        )}
       </Surface>
 
-      <Surface title="Annual Accomplishment Report — Services" subtitle="Caring, Healing, and Teaching services aligned with DSWD reporting standards.">
+      <Surface title="Annual Accomplishment Report — Services">
+        {accomplishments.isLoading ? <LoadingState title="Loading accomplishments" description="" /> :
+        accomplishments.data.length === 0 ? <EmptyState title="No accomplishment data" description="Accomplishment data will appear once the API provides it." /> : (
         <DataTable
           columns={['Service area', 'Beneficiaries', 'Sessions delivered', 'Key outcomes']}
-          rows={annualAccomplishmentData.map((row) => [
-            row.service,
-            String(row.beneficiaries),
-            String(row.sessions),
-            row.outcomes,
-          ])}
+          rows={accomplishments.data.map((row) => [row.service, String(row.beneficiaries), String(row.sessions), row.outcomes])}
         />
+        )}
       </Surface>
 
       <div className="two-column-grid">
-        <Surface title="Safehouse performance comparison" subtitle="Active residents, reintegrations, school enrollment, and high-risk flags by facility.">
+        <Surface title="Safehouse performance">
+          {safehouses.data.length === 0 ? <EmptyState title="No safehouse data" description="Safehouse performance data will appear once loaded." /> : (
           <DataTable
-            columns={['Safehouse', 'Active', 'Reintegrated', 'School enroll.', 'High risk']}
-            rows={safehousePerformanceData.map((row) => [
-              row.name,
-              String(row.active),
-              String(row.reintegrated),
-              row.schoolEnrollment,
-              <StatusPill tone={row.riskHigh > 2 ? 'danger' : 'warning'}>{row.riskHigh}</StatusPill>,
-            ])}
+            columns={['Safehouse', 'Occupancy', 'Region', 'Status']}
+            rows={safehouses.data.map((sh) => [sh.name, `${sh.currentOccupancy}/${sh.capacityGirls}`, sh.region, sh.status])}
           />
+          )}
         </Surface>
 
-        <Surface title="Reintegration success rates" subtitle="Placements and 90-day success rate per quarter.">
+        <Surface title="Reintegration success rates">
+          {reintegrationStats.isLoading ? <LoadingState title="Loading" description="" /> :
+          reintegrationStats.data.length === 0 ? <EmptyState title="No reintegration data" description="Reintegration statistics will appear once the API provides them." /> : (
           <DataTable
             columns={['Quarter', 'Placements', 'Stable at 90 days', 'Success rate']}
-            rows={reintegrationData.map((row) => [
-              row.quarter,
-              String(row.placed),
-              String(row.successAt90d),
-              <StatusPill tone={parseInt(row.rate) >= 90 ? 'success' : 'warning'}>{row.rate}</StatusPill>,
-            ])}
+            rows={reintegrationStats.data.map((row) => [row.quarter, String(row.placed), String(row.successAt90d), row.rate])}
           />
+          )}
         </Surface>
       </div>
 
-      <Surface title="Resident outcome metrics" subtitle="Education and health progress across the current caseload.">
+      <Surface title="Resident outcome metrics">
+        {outcomeMetrics.isLoading ? <LoadingState title="Loading" description="" /> :
+        outcomeMetrics.data.length === 0 ? <EmptyState title="No outcome data" description="Outcome metrics will appear once the API provides them." /> : (
         <DataTable
           columns={['Metric', 'Current value', 'Change vs. last quarter', 'Notes']}
-          rows={[
-            ['School enrollment rate',      '90%',  '+5%',  'Up across all facilities; Davao still needs support'],
-            ['Counseling completion rate',  '84%',  '+3%',  'Group sessions driving completion'],
-            ['Health checkup compliance',   '97%',  '—',    'On-site medical officer partnership active'],
-            ['Reading level improvement',   '71%',  '+8%',  'Education partner reporting milestone completions'],
-            ['Sleep stability (self-report)','62%', '+14%', 'Routine changes showing measurable impact'],
-          ]}
+          rows={outcomeMetrics.data.map((row) => [row.metric, row.currentValue, row.change, row.notes])}
         />
+        )}
       </Surface>
 
-      <Surface title="Published impact snapshots" subtitle="Treat these as reporting inputs, not just public content.">
+      <Surface title="Published impact snapshots">
+        {impactSnapshots.data.length === 0 ? <EmptyState title="No snapshots" description="Published impact snapshots will appear once available." /> : (
         <DataTable
           columns={[...snapshotColumns]}
           rows={impactSnapshots.data.map((snapshot) => [...impactSnapshotTableRow(snapshot)])}
         />
+        )}
       </Surface>
+      </>
+      )}
     </PageSection>
   )
 }
 
 function OutreachPage() {
-  const posts = useApiResource('/social-media-posts', mockSocialPosts)
-  const snapshots = useApiResource('/public-impact-snapshots', mockImpactSnapshots)
+  const posts = useApiResource<SocialMediaPost[]>('/social-media-posts', [])
+  const snapshots = useApiResource<PublicImpactSnapshot[]>('/public-impact-snapshots', [])
   const [platformFilter, setPlatformFilter] = useState('All platforms')
   const filteredPosts = posts.data.filter((post) =>
     platformFilter === 'All platforms' ? true : post.platform === platformFilter,
@@ -2811,21 +2788,26 @@ function OutreachPage() {
 }
 
 function SuperAdminDashboardPage() {
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
+  const residents = useApiResource<Resident[]>('/residents', [])
+  const anyLoading = safehouses.isLoading || residents.isLoading
+
   return (
     <>
       <SessionWelcomeBanner />
-      <PageSection title="Global dashboard" description="Cross-facility oversight should feel distinct from the local admin dashboard.">
+      <PageSection title="Global dashboard" description="Cross-facility oversight and governance.">
+      {anyLoading ? (
+        <LoadingState title="Loading global view" description="Fetching organization-wide data from the API." />
+      ) : (
+      <>
       <div className="stat-grid">
-        <StatCard label="Facilities" value={String(mockSafehouses.length)} />
-        <StatCard label="Users in scope" value="24" />
-        <StatCard label="Open governance alerts" value="3" />
-        <StatCard label="Global risk queue" value="5" />
+        <StatCard label="Facilities" value={String(safehouses.data.length)} />
+        <StatCard label="Total residents" value={String(residents.data.length)} />
+        <StatCard label="Active residents" value={String(residents.data.filter((r) => r.caseStatus === 'Active').length)} />
+        <StatCard label="High-risk residents" value={String(residents.data.filter((r) => r.currentRiskLevel === 'High').length)} />
       </div>
-      <Surface title="What this dashboard should emphasize" subtitle="Governance and cross-facility visibility come first.">
-        <p>
-          The super-admin dashboard should highlight organization-wide performance, facility comparisons, and access-related concerns rather than repeating local operational detail.
-        </p>
-      </Surface>
+      </>
+      )}
     </PageSection>
     </>
   )
@@ -2839,19 +2821,22 @@ function FacilitiesPage() {
   )
 }
 
+type UserRecord = { name: string; role: string; facilityScope: string; status: string }
+
 function UsersPage() {
+  const users = useApiResource<UserRecord[]>('/admin/users', [])
+
   return (
-    <PageSection title="Users" description="User management should make role and facility scope obvious.">
-      <Surface title="User directory" subtitle="Backend endpoints are pending, but the UI structure should already be clear.">
+    <PageSection title="Users" description="User management with role and facility scope.">
+      {users.isLoading ? <LoadingState title="Loading users" description="Fetching user directory from the API." /> :
+      users.data.length === 0 ? <EmptyState title="No users loaded" description="User data will appear once the API provides it." /> : (
+      <Surface title="User directory">
         <DataTable
           columns={['Name', 'Role', 'Facility scope', 'Status']}
-          rows={[
-            ['Jordan Ellis', 'Admin', 'Hope House Manila', <StatusPill tone="success">Active</StatusPill>],
-            ['Maya Thompson', 'Donor', 'Self only', <StatusPill tone="success">Active</StatusPill>],
-            ['Alex Moreno', 'Super admin', 'All facilities', <StatusPill tone="warning">Review access</StatusPill>],
-          ]}
+          rows={users.data.map((u) => [u.name, u.role, u.facilityScope, <StatusPill tone="success">{u.status}</StatusPill>])}
         />
       </Surface>
+      )}
     </PageSection>
   )
 }
@@ -2898,22 +2883,24 @@ function AccessPoliciesPage() {
 }
 
 function SuperAdminReportsPage() {
+  const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
+
   return (
     <PageSection title="Global reports" description="Cross-facility comparison and organization-wide trend analysis.">
-      <Surface title="Comparison lens" subtitle="This should tell a cross-facility story, not repeat local admin views.">
+      {safehouses.isLoading ? <LoadingState title="Loading global reports" description="Fetching facility data from the API." /> :
+      safehouses.data.length === 0 ? <EmptyState title="No facilities" description="Facility data will appear once the API provides it." /> : (
+      <Surface title="Facility comparison">
         <DataTable
-          columns={['Facility', 'Occupancy', 'School enrollment', 'Status']}
-          rows={mockSafehouses.map((safehouse) => {
-            const metric = mockSafehouseMetrics.find((item) => item.safehouseId === safehouse.safehouseId)
-            return [
-              safehouse.name,
-              `${safehouse.currentOccupancy}/${safehouse.capacityGirls}`,
-              metric ? `${Math.round(metric.schoolEnrollmentRate * 100)}%` : 'N/A',
-              <StatusPill tone="success">{safehouse.status}</StatusPill>,
-            ]
-          })}
+          columns={['Facility', 'Occupancy', 'Region', 'Status']}
+          rows={safehouses.data.map((safehouse) => [
+            safehouse.name,
+            `${safehouse.currentOccupancy}/${safehouse.capacityGirls}`,
+            safehouse.region,
+            <StatusPill tone="success">{safehouse.status}</StatusPill>,
+          ])}
         />
       </Surface>
+      )}
     </PageSection>
   )
 }
