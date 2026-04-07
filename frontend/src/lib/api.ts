@@ -53,7 +53,7 @@ export async function fetchJson<T>(path: string): Promise<T> {
 }
 
 const IMPACT_CACHE_PREFIX = '/public/impact'
-const storageKey = (path: string) => `intex:impact-cache:${path}`
+const storageKey = (path: string) => `beacon:impact-cache:${path}`
 
 const impactMemory = new Map<string, unknown>()
 const impactInflight = new Map<string, Promise<unknown>>()

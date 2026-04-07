@@ -133,7 +133,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.Name = "Intex.Auth";
+    options.Cookie.Name = "Beacon.Auth";
     options.Cookie.HttpOnly = true;
     // Local SPA → local API: Lax is fine. Local SPA → HTTPS API (cross-site): need None + Secure
     // so fetch(..., credentials: 'include') receives Set-Cookie. Enable with Auth:Cookie:CrossSite (e.g. Azure).
@@ -191,10 +191,95 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+var spaWebRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+var spaIndexPath = Path.Combine(spaWebRoot, "index.html");
+IResult ServeSpaIndex()
+{
+    if (!File.Exists(spaIndexPath))
+    {
+        return Results.NotFound("SPA index.html was not found in wwwroot.");
+    }
+    return Results.File(spaIndexPath, "text/html; charset=utf-8");
+}
+
+var spaPublicRoutes = new[]
+{
+    "/",
+    "/404",
+    "/impact",
+    "/programs",
+    "/about",
+    "/social",
+    "/donate",
+    "/login",
+    "/privacy",
+    "/cookies",
+};
+
+foreach (var route in spaPublicRoutes)
+{
+    app.MapGet(route, () => ServeSpaIndex());
+}
+
+// Deep-link reload support for SPA app routes (e.g. /app/admin/contributions).
+app.MapGet("/app/{*path}", () => ServeSpaIndex());
+
+var apiRouteRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+{
+    "auth",
+    "public",
+    "supporters",
+    "residents",
+    "safehouses",
+    "partners",
+    "partner-assignments",
+    "social-media-posts",
+    "public-impact-snapshots",
+    "donations",
+};
+
+// Fallback for unknown frontend routes so the SPA can render its own 404 screen.
+app.MapFallback(async context =>
+{
+    if (!(HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var pathValue = context.Request.Path.Value ?? string.Empty;
+    if (Path.HasExtension(pathValue))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var trimmed = pathValue.Trim('/');
+    var firstSegment = trimmed.Length == 0 ? string.Empty : trimmed.Split('/', 2)[0];
+    if (!string.IsNullOrWhiteSpace(firstSegment) && apiRouteRoots.Contains(firstSegment))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    if (!File.Exists(spaIndexPath))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        await context.Response.WriteAsync("SPA index.html was not found in wwwroot.");
+        return;
+    }
+
+    context.Response.ContentType = "text/html; charset=utf-8";
+    await context.Response.SendFileAsync(spaIndexPath);
+});
 
 await EnsureIntexExtensionTablesAsync(app);
 

@@ -246,14 +246,14 @@ function App() {
   return (
     <AppErrorBoundary>
       <SessionProvider>
-        <IntexApp />
+        <BeaconApp />
         <CookieConsentBanner />
       </SessionProvider>
     </AppErrorBoundary>
   )
 }
 
-function IntexApp() {
+function BeaconApp() {
   const pathname = usePathname()
   const { user, sessionStatus, signOut } = useSession()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -478,6 +478,7 @@ function resolveRoute(pathname: string, role: UserRole) {
     { path: '/social', kind: 'public', render: () => <SocialPage /> },
     { path: '/donate', kind: 'public', render: () => <DonatePage /> },
     { path: '/login', kind: 'public', render: () => <LoginPage /> },
+    { path: '/404', kind: 'public', render: () => <NotFoundPage /> },
     { path: '/privacy', kind: 'public', render: () => <PrivacyPage /> },
     { path: '/cookies', kind: 'public', render: () => <CookiePage /> },
     {
@@ -562,8 +563,8 @@ function PublicLayout({
         <AppLink to="/" className="brand-lockup">
           <img src={siteImages.logo} alt="" className="brand-logo-img" width={44} height={44} />
           <div className="brand-text-block">
-            <span className="brand-mark">INTEX</span>
-            <span className="brand-text">Integrity-centered nonprofit operations</span>
+            <span className="brand-mark">BEACON</span>
+            <span className="brand-text">Mission-centered nonprofit operations</span>
           </div>
         </AppLink>
         <nav className={`top-nav ${mobileNavOpen ? 'open' : ''}`}>
@@ -585,7 +586,7 @@ function PublicLayout({
       <main className="page-main">{children}</main>
       <footer className="public-footer">
         <div>
-          <strong>INTEX nonprofit platform</strong>
+          <strong>Beacon nonprofit platform</strong>
           <p>Built to connect care outcomes, facility operations, donor trust, and responsible decision support.</p>
         </div>
         <div className="footer-links">
@@ -620,7 +621,7 @@ function AuthenticatedLayout({
         <div className="sidebar-brand">
           <img src={siteImages.logo} alt="" className="brand-logo-img brand-logo-img--sm" width={36} height={36} />
           <div className="brand-text-block">
-            <span className="brand-mark">INTEX</span>
+            <span className="brand-mark">BEACON</span>
             <span>
               {user.role === 'super-admin'
                 ? 'Global command'
@@ -771,7 +772,7 @@ function HomePage() {
           <span className="eyebrow">Mission-driven nonprofit operations</span>
           <h1>Protect care workflows, connect donations to outcomes, and show impact with credibility.</h1>
           <p>
-            INTEX gives nonprofit teams a calm public presence and a serious operations workspace for resident care,
+            Beacon gives nonprofit teams a calm public presence and a serious operations workspace for resident care,
             donor transparency, reporting, and decision support.
           </p>
           <div className="hero-actions">
@@ -1337,7 +1338,7 @@ function AboutPage() {
       </section>
       <section className="directors-section">
         <h2 className="directors-heading">Leadership</h2>
-        <p className="directors-lede">People guiding Beacon and the INTEX platform partnership.</p>
+        <p className="directors-lede">People guiding Beacon and the Beacon platform partnership.</p>
         <div className="director-grid">
           {directorPhotos.map((person) => (
             <article key={person.src} className="director-card">
@@ -1658,7 +1659,7 @@ function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean }) {
     <div className="public-page">
       <section className="page-hero compact">
         <span className="eyebrow">Login</span>
-        <h1>Enter the protected INTEX workspace.</h1>
+        <h1>Enter the protected Beacon workspace.</h1>
         <p>
           Sign in with your account from the API. The session uses an HTTP-only auth cookie; the frontend calls <code>/auth/login</code> and <code>/auth/me</code> with credentials included.
         </p>
@@ -1868,7 +1869,7 @@ function SecurityPage() {
           <div className="stack-row">
             <strong>Sign-in</strong>
             <p>
-              POST <code>/auth/login</code> with email and password. The API sets an HTTP-only cookie (<code>Intex.Auth</code>); the frontend never stores the password after submit.
+              POST <code>/auth/login</code> with email and password. The API sets an HTTP-only cookie (<code>Beacon.Auth</code>); the frontend never stores the password after submit.
             </p>
           </div>
           <div className="stack-row">
@@ -3465,49 +3466,51 @@ function UsersPage() {
 
   return (
     <PageSection title="Users" description="User management with role and facility scope.">
-      {users.isLoading ? <SkeletonSurface title="User directory"><SkeletonTable rows={4} cols={4} /></SkeletonSurface> :
-      <Surface title="User directory">
-        <FilterToolbar>
-          <label>
-            Search
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name or email"
+      {users.isLoading ? (
+        <SkeletonSurface title="User directory"><SkeletonTable rows={4} cols={4} /></SkeletonSurface>
+      ) : (
+        <Surface title="User directory">
+          <FilterToolbar>
+            <label>
+              Search
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name or email"
+              />
+            </label>
+            <label>
+              Role
+              <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                <option value="All">All roles</option>
+                {roleOptions.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+            </label>
+            <label>
+              Facility
+              <select value={facilityFilter} onChange={(event) => setFacilityFilter(event.target.value)}>
+                <option value="All">All facilities</option>
+                {facilityOptions.map((facility) => <option key={facility} value={facility}>{facility}</option>)}
+              </select>
+            </label>
+          </FilterToolbar>
+          {users.data.length === 0 ? (
+            <EmptyState title="No users loaded" description="User data will appear once the API provides it." />
+          ) : filteredUsers.length === 0 ? (
+            <EmptyState title="No matching users" description="Adjust the search, role, or facility filters to view users." />
+          ) : (
+            <DataTable
+              columns={['Name', 'Email', 'Role', 'Facility scope', 'Status']}
+              rows={filteredUsers.map((u) => [
+                asText(u.name, '—'),
+                asText(u.email, '—'),
+                asText(u.role, '—'),
+                asText(u.facilityScope, '—'),
+                <StatusPill tone={asLowerText(u.status) === 'active' ? 'success' : 'warning'}>{u.status}</StatusPill>,
+              ])}
             />
-          </label>
-          <label>
-            Role
-            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-              <option value="All">All roles</option>
-              {roleOptions.map((role) => <option key={role} value={role}>{role}</option>)}
-            </select>
-          </label>
-          <label>
-            Facility
-            <select value={facilityFilter} onChange={(event) => setFacilityFilter(event.target.value)}>
-              <option value="All">All facilities</option>
-              {facilityOptions.map((facility) => <option key={facility} value={facility}>{facility}</option>)}
-            </select>
-          </label>
-        </FilterToolbar>
-        {users.data.length === 0 ? (
-          <EmptyState title="No users loaded" description="User data will appear once the API provides it." />
-        ) : filteredUsers.length === 0 ? (
-          <EmptyState title="No matching users" description="Adjust the search, role, or facility filters to view users." />
-        ) : (
-          <DataTable
-            columns={['Name', 'Email', 'Role', 'Facility scope', 'Status']}
-            rows={filteredUsers.map((u) => [
-              asText(u.name, '—'),
-              asText(u.email, '—'),
-              asText(u.role, '—'),
-              asText(u.facilityScope, '—'),
-              <StatusPill tone={asLowerText(u.status) === 'active' ? 'success' : 'warning'}>{u.status}</StatusPill>,
-            ])}
-          />
-        )}
-      </Surface>
+          )}
+        </Surface>
       )}
     </PageSection>
   )
@@ -3603,12 +3606,18 @@ function AuditPage() {
 }
 
 function NotFoundPage() {
+  const pathname = window.location.pathname
   return (
     <div className="public-page narrow">
       <section className="page-hero compact">
-        <span className="eyebrow">Not found</span>
-        <h1>That page does not exist.</h1>
-        <p>Use the navigation to return to a valid route.</p>
+        <span className="eyebrow">Error 404</span>
+        <h1>Page not found.</h1>
+        <p>The route <code>{pathname}</code> does not exist or may have moved.</p>
+        <div className="hero-actions">
+          <AppLink to="/" className="primary-button">Go to home</AppLink>
+          <AppLink to="/impact" className="secondary-button">View impact</AppLink>
+          <AppLink to="/login" className="secondary-button">Login</AppLink>
+        </div>
       </section>
     </div>
   )
@@ -3627,7 +3636,7 @@ function PageSection({
     <section className="app-page">
       <header className="page-header">
         <div>
-          <span className="eyebrow">INTEX workspace</span>
+          <span className="eyebrow">Beacon workspace</span>
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
