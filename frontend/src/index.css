@@ -1307,6 +1307,20 @@ p {
   border-color: rgba(47, 107, 103, 0.24);
 }
 
+@keyframes skeletonPulse {
+  0%   { opacity: 0.12; }
+  50%  { opacity: 0.22; }
+  100% { opacity: 0.12; }
+}
+
+.skeleton-pulse {
+  background: var(--brand-deep, #1a3c40);
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.stat-card .skeleton-pulse:nth-child(2) { margin-top: 0.6rem; }
+.stack-row .skeleton-pulse + .skeleton-pulse { margin-top: 0.35rem; }
+
 .success-panel {
   border-color: rgba(44, 106, 81, 0.24);
 }

@@ -102,6 +102,82 @@ export function LoadingState({
   )
 }
 
+export function Skeleton({ width, height, radius }: { width?: string; height?: string; radius?: string }) {
+  return (
+    <span
+      className="skeleton-pulse"
+      style={{ display: 'block', width: width ?? '100%', height: height ?? '1rem', borderRadius: radius ?? '6px' }}
+    />
+  )
+}
+
+export function SkeletonStatCard() {
+  return (
+    <article className="stat-card">
+      <Skeleton width="60%" height="0.75rem" />
+      <Skeleton width="40%" height="1.85rem" radius="8px" />
+    </article>
+  )
+}
+
+export function SkeletonTable({ rows = 3, cols = 3 }: { rows?: number; cols?: number }) {
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            {Array.from({ length: cols }).map((_, i) => (
+              <th key={i}><Skeleton width="70%" height="0.7rem" /></th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, r) => (
+            <tr key={r}>
+              {Array.from({ length: cols }).map((_, c) => (
+                <td key={c}><Skeleton width={`${50 + Math.round(Math.random() * 40)}%`} height="0.85rem" /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export function SkeletonSurface({ title, children }: { title?: string; children?: ReactNode }) {
+  return (
+    <section className="surface">
+      <div className="surface-header">
+        <div>
+          {title ? <h3>{title}</h3> : <Skeleton width="50%" height="1rem" />}
+          <Skeleton width="70%" height="0.7rem" />
+        </div>
+      </div>
+      {children ?? <SkeletonTable />}
+    </section>
+  )
+}
+
+export function SkeletonStackRows({ count = 3 }: { count?: number }) {
+  return (
+    <div className="stack-list">
+      {Array.from({ length: count }).map((_, i) => (
+        <div className="stack-row" key={i}>
+          <div>
+            <Skeleton width="45%" height="0.85rem" />
+            <Skeleton width="80%" height="0.7rem" />
+          </div>
+          <div className="align-right">
+            <Skeleton width="60px" height="1.4rem" radius="99px" />
+            <Skeleton width="90px" height="0.7rem" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ErrorState({
   title,
   description,

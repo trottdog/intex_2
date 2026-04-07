@@ -16,6 +16,10 @@ import {
   FilterToolbar,
   LoadingState,
   SectionHeader,
+  SkeletonStackRows,
+  SkeletonStatCard,
+  SkeletonSurface,
+  SkeletonTable,
   StatCard,
   StatusPill,
   Surface,
@@ -36,7 +40,7 @@ import {
   type Partner,
   type PartnerAssignment,
 } from './data/mockData'
-import { getApiBaseUrl, useApiResource } from './lib/api'
+import { useApiResource } from './lib/api'
 import {
   IMPACT_SNAPSHOT_COLUMNS_API,
   IMPACT_SNAPSHOT_COLUMNS_MOCK,
@@ -789,6 +793,7 @@ function ImpactPage() {
     '/public/impact/donation-summary',
     emptyDonationSummary,
   )
+  const loading = metrics.isLoading || safehouses.isLoading || donationSummary.isLoading
 
   return (
     <div className="public-page">
@@ -806,56 +811,67 @@ function ImpactPage() {
         </section>
       </div>
 
-      <div className="source-note">
-        <strong>Data source:</strong> {metrics.source === 'live' ? `Live backend data from ${getApiBaseUrl()}` : 'Frontend fallback preview while backend is unavailable'}
-      </div>
-
-      {metrics.error ? (
-        <ErrorState title="Using frontend fallback" description={metrics.error} />
+      {!loading && metrics.error ? (
+        <ErrorState title="Could not reach the API" description={metrics.error} />
       ) : null}
 
       <section className="stat-grid">
-        <StatCard label="Donation count" value={String(metrics.data.donationCount)} hint="Public-facing aggregate only" />
-        <StatCard
-          label="Total monetary donations"
-          value={impactCurrency.format(metrics.data.totalDonationAmount)}
-          hint="Sum of recorded cash amounts (PHP); other gift types summarized below"
-        />
-        <StatCard label="Residents served" value={String(metrics.data.residentCount)} hint="Current total across the platform" />
-        <StatCard label="Safehouses represented" value={String(metrics.data.safehouseCount)} hint="Active facilities in the impact view" />
+        {loading ? (
+          <>{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</>
+        ) : (
+          <>
+            <StatCard label="Donation count" value={String(metrics.data.donationCount)} />
+            <StatCard label="Total monetary donations" value={impactCurrency.format(metrics.data.totalDonationAmount)} />
+            <StatCard label="Residents served" value={String(metrics.data.residentCount)} />
+            <StatCard label="Safehouses represented" value={String(metrics.data.safehouseCount)} />
+          </>
+        )}
       </section>
 
       <div className="two-column-grid">
-        <Surface title="Donation summary" subtitle="What supporters are contributing right now.">
-          <DataTable
-            columns={['Donation type', 'Count', 'Amount (PHP)']}
-            rows={donationSummary.data.summaries.map((item) => [
-              formatDonationTypeLabel(item.donationType),
-              item.count.toString(),
-              impactCurrency.format(item.amount),
-            ])}
-          />
-        </Surface>
-        <Surface title="Safehouse summary" subtitle="A public-safe snapshot of facility activity.">
-          <div className="stack-list">
-            {safehouses.data.map((safehouse) => (
-              <div className="stack-row" key={safehouse.safehouseId}>
-                <div>
-                  <strong>{safehouse.name}</strong>
-                  <p>
-                    {safehouse.city}, {safehouse.region}
-                  </p>
-                </div>
-                <div className="align-right">
-                  <StatusPill tone="success">{safehouse.status}</StatusPill>
-                  <p>
-                    {safehouse.currentOccupancy} of {safehouse.capacityGirls} residents
-                  </p>
-                </div>
+        {loading ? (
+          <>
+            <SkeletonSurface title="Donation summary"><SkeletonTable rows={3} cols={3} /></SkeletonSurface>
+            <SkeletonSurface title="Safehouse summary"><SkeletonStackRows count={3} /></SkeletonSurface>
+          </>
+        ) : (
+          <>
+            <Surface title="Donation summary" subtitle="What supporters are contributing right now.">
+              {donationSummary.data.summaries.length === 0 ? (
+                <EmptyState title="No donations yet" description="Donation data will appear once available." />
+              ) : (
+              <DataTable
+                columns={['Donation type', 'Count', 'Amount (PHP)']}
+                rows={donationSummary.data.summaries.map((item) => [
+                  formatDonationTypeLabel(item.donationType),
+                  item.count.toString(),
+                  impactCurrency.format(item.amount),
+                ])}
+              />
+              )}
+            </Surface>
+            <Surface title="Safehouse summary" subtitle="A public-safe snapshot of facility activity.">
+              {safehouses.data.length === 0 ? (
+                <EmptyState title="No safehouses" description="Safehouse data will appear once available." />
+              ) : (
+              <div className="stack-list">
+                {safehouses.data.map((safehouse) => (
+                  <div className="stack-row" key={safehouse.safehouseId}>
+                    <div>
+                      <strong>{safehouse.name}</strong>
+                      <p>{safehouse.city}, {safehouse.region}</p>
+                    </div>
+                    <div className="align-right">
+                      <StatusPill tone="success">{safehouse.status}</StatusPill>
+                      <p>{safehouse.currentOccupancy} of {safehouse.capacityGirls} residents</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </Surface>
+              )}
+            </Surface>
+          </>
+        )}
       </div>
     </div>
   )
