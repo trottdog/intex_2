@@ -86,8 +86,10 @@ function HomeProofSection() {
           <div className="home-proof-stats-grid">
             {stats.map(({ value, label }) => (
               <div key={label} className="home-proof-stat">
+                <div className="home-proof-stat-header">
+                  <span>{label}</span>
+                </div>
                 <strong>{value}</strong>
-                <span>{label}</span>
               </div>
             ))}
           </div>
@@ -121,10 +123,10 @@ export function HomePage() {
             </p>
             <div className="hero-action-stack">
               <div className="hero-actions">
-                <AppLink to="/donate" className="primary-button">
+                <AppLink to="/donate" className="primary-button hero-primary-button">
                   Donate now
                 </AppLink>
-                <AppLink to="/impact" className="secondary-button">
+                <AppLink to="/impact" className="secondary-button hero-secondary-button">
                   Explore impact
                 </AppLink>
               </div>
@@ -138,8 +140,8 @@ export function HomePage() {
 
       <section className="what-we-do-section">
         <div className="what-we-do-header">
-          <span className="what-we-do-eyebrow">What we do</span>
-          <h2>Provide Safety, Healing, And Empowerment</h2>
+          <span className="what-we-do-eyebrow">Our values</span>
+          <h2>Safety, healing, justice, and empowerment</h2>
         </div>
         <div className="what-we-do-grid">
           <div className="what-we-do-card">
@@ -149,7 +151,7 @@ export function HomePage() {
               </svg>
             </div>
             <h3>Safety</h3>
-            <p>Safety is the number one focus of Beacon since it is the first step of healing. Every child who enters our home deserves to feel protected and free from fear.</p>
+            <p>Every child deserves to feel safe before anything else can begin.</p>
           </div>
           <div className="what-we-do-card">
             <div className="wwd-icon-wrap wwd-icon-healing">
@@ -159,7 +161,7 @@ export function HomePage() {
               </svg>
             </div>
             <h3>Healing</h3>
-            <p>Once a child trusts that they are safe, the healing process can begin. Through counseling, medical care, and community, Beacon walks alongside each child at their own pace.</p>
+            <p>Care happens at each child's pace, with support that meets them where they are.</p>
           </div>
           <div className="what-we-do-card">
             <div className="wwd-icon-wrap wwd-icon-justice">
@@ -170,7 +172,7 @@ export function HomePage() {
               </svg>
             </div>
             <h3>Justice</h3>
-            <p>Beacon does not encourage or discourage children from filing cases — we support each child in pursuing what justice means to them, on their terms and timeline.</p>
+            <p>We support each child in choosing what justice looks like for them.</p>
           </div>
           <div className="what-we-do-card">
             <div className="wwd-icon-wrap wwd-icon-empowerment">
@@ -181,35 +183,35 @@ export function HomePage() {
               </svg>
             </div>
             <h3>Empowerment</h3>
-            <p>Our goal is to help children move from a mindset of victimhood into one of leadership and advocacy — equipped to shape their own futures with confidence.</p>
+            <p>Children grow into confident leaders with the tools to shape their future.</p>
           </div>
         </div>
       </section>
 
-      <section className="feature-band feature-band-visual">
+      <section className="feature-band feature-band-visual home-feature-band">
         <div className="feature-tile">
           <div className="feature-tile-visual">
             <img src={siteImages.featureStory} alt="" />
           </div>
-          <span className="eyebrow">Public story</span>
-          <h2>Tell a credible mission story in minutes, not buried pages.</h2>
-          <p>Strong first impression, direct calls to action, and a public impact surface backed by live nonprofit metrics.</p>
+          <span className="eyebrow">PUBLIC STORY</span>
+          <h2>Show impact clearly, in minutes</h2>
+          <p>Donors and supporters can quickly understand what their support is doing, without digging through pages.</p>
         </div>
         <div className="feature-tile">
           <div className="feature-tile-visual">
             <img src={siteImages.featureOps} alt="" />
           </div>
-          <span className="eyebrow">Operations core</span>
-          <h2>Give staff one place to manage care, contributions, and reporting.</h2>
-          <p>Caseload, donor flows, safehouse visibility, and reporting are structured around task clarity instead of clutter.</p>
+          <span className="eyebrow">CARE OPERATIONS</span>
+          <h2>Keep care, donations, and reporting connected</h2>
+          <p>Staff manage everything in one place, reducing confusion and keeping the focus on each child.</p>
         </div>
         <div className="feature-tile">
           <div className="feature-tile-visual">
             <img src={siteImages.featureMl} alt="" />
           </div>
-          <span className="eyebrow">Decision support</span>
-          <h2>Use ML where it helps, with explanations and next steps.</h2>
-          <p>Risk, readiness, and retention signals stay grounded in human judgment and visible workflow context.</p>
+          <span className="eyebrow">DECISION SUPPORT</span>
+          <h2>Better decisions, backed by real context</h2>
+          <p>Insights support staff without replacing judgment, helping teams act with clarity and confidence.</p>
         </div>
       </section>
     </div>

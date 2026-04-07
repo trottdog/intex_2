@@ -1,6 +1,6 @@
 /** Static assets served from `frontend/public/images` (see repo root `images/`). */
 export const siteImages = {
-  logo: '/images/beacon-logo.png',
+  logo: '/images/minimalist-logo.png',
   homeHero: '/images/Hands_Circle.jpg',
   featureStory: '/images/together.webp',
   featureOps: '/images/group.jpg',

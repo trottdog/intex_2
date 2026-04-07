@@ -15,6 +15,7 @@ export function PublicLayout({
   const pathname = window.location.pathname
   const organizationActive = pathname === '/about' || pathname === '/about/organization'
   const meetUsActive = pathname === '/about/meet-us'
+  const showFloatingDonate = pathname !== '/login'
 
   const primaryLinks = [
     { to: '/', label: 'Home' },
@@ -99,6 +100,11 @@ export function PublicLayout({
         </button>
       </header>
       <main className="page-main">{children}</main>
+      {showFloatingDonate ? (
+        <AppLink to="/donate" className="floating-donate-button">
+          Donate
+        </AppLink>
+      ) : null}
       <footer className="public-footer">
         <div>
           <strong>Beacon nonprofit platform</strong>
