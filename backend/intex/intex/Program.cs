@@ -1,6 +1,7 @@
 using DotNetEnv;
 using intex.Data;
 using intex.Security;
+using intex.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -142,6 +143,8 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole(IntexRoles.Admin, IntexRoles.SuperAdmin));
 });
 
+builder.Services.AddScoped<IFacilityDataScopeResolver, FacilityDataScopeResolver>();
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = "Beacon.Auth";
@@ -184,18 +187,39 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Vite defaults to 5173; credentials required for Identity auth cookie from the SPA.
-app.UseCors(x => x
-    .WithOrigins(
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:3000",
-        "https://beacon.trottdog.com",
-        "https://www.beacon.trottdog.com")
-    .AllowAnyHeader()
-    .AllowAnyMethod()
-    .AllowCredentials());
+// Credentials required for Identity auth cookie from the SPA.
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors(x => x
+        .SetIsOriginAllowed(static origin =>
+        {
+            if (string.IsNullOrEmpty(origin)) return false;
+            try
+            {
+                var u = new Uri(origin);
+                return u.Scheme == "http" && (u.Host == "localhost" || u.Host == "127.0.0.1");
+            }
+            catch (UriFormatException)
+            {
+                return false;
+            }
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials());
+}
+else
+{
+    app.UseCors(x => x
+        .WithOrigins(
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "https://beacon.trottdog.com",
+            "https://www.beacon.trottdog.com")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials());
+}
 
 if (!app.Environment.IsDevelopment())
 {
@@ -255,6 +279,9 @@ var apiRouteRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     "social-media-posts",
     "public-impact-snapshots",
     "donations",
+    "reports",
+    "admin",
+    "ml",
 };
 
 // Fallback for unknown frontend routes so the SPA can render its own 404 screen.
@@ -301,7 +328,13 @@ await using (var scope = app.Services.CreateAsyncScope())
     var cs = app.Configuration.GetConnectionString("DefaultConnection");
     if (applyMigrations)
     {
-        if (IsTransactionPoolerConnection(cs))
+        if (string.IsNullOrWhiteSpace(cs))
+        {
+            app.Logger.LogWarning(
+                "Skipping EF Core migrations: DefaultConnection is not configured. " +
+                "Copy backend/intex/intex/.env.example to .env (or use dotnet user-secrets) and set ConnectionStrings__DefaultConnection, then restart.");
+        }
+        else if (IsTransactionPoolerConnection(cs))
         {
             app.Logger.LogWarning(
                 "Skipping EF Core migrations: connection uses transaction pooler port 6543 (DDL is unreliable). " +
@@ -317,7 +350,14 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 if (app.Configuration.GetValue("Auth:Seed:Enabled", app.Environment.IsDevelopment()))
 {
-    if (IsTransactionPoolerConnection(app.Configuration.GetConnectionString("DefaultConnection")))
+    var seedCs = app.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(seedCs))
+    {
+        app.Logger.LogWarning(
+            "Identity startup seed is skipped: DefaultConnection is not configured. " +
+            "Set your Postgres connection string, then restart. See backend/intex/intex/.env.example.");
+    }
+    else if (IsTransactionPoolerConnection(seedCs))
     {
         app.Logger.LogWarning(
             "Identity startup seed is skipped: DefaultConnection uses the Supabase transaction pooler (port 6543), " +
@@ -331,7 +371,8 @@ if (app.Configuration.GetValue("Auth:Seed:Enabled", app.Environment.IsDevelopmen
     }
 }
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment()
+    && !string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("DefaultConnection")))
 {
     await IdentityPasswordBootstrapper.RunAsync(app);
 }
@@ -423,7 +464,39 @@ static async Task EnsureIntexExtensionTablesAsync(WebApplication app)
             CREATE INDEX IF NOT EXISTS idx_ml_prediction_snapshots_pipeline_entity
             ON ml_prediction_snapshots (pipeline_name, entity_id);
             """);
-        app.Logger.LogInformation("Verified case_conferences and ML reporting tables exist (CREATE IF NOT EXISTS).");
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS report_donation_trends (
+                id BIGSERIAL PRIMARY KEY,
+                month_label TEXT NOT NULL,
+                amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+                donors INTEGER NOT NULL DEFAULT 0,
+                display_order INTEGER NOT NULL DEFAULT 0
+            );
+            """);
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS report_accomplishments (
+                id BIGSERIAL PRIMARY KEY,
+                service_area TEXT NOT NULL,
+                beneficiaries INTEGER NOT NULL DEFAULT 0,
+                sessions_delivered INTEGER NOT NULL DEFAULT 0,
+                outcomes TEXT NOT NULL DEFAULT '',
+                display_order INTEGER NOT NULL DEFAULT 0
+            );
+            """);
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS report_reintegration_stats (
+                id BIGSERIAL PRIMARY KEY,
+                quarter_label TEXT NOT NULL,
+                placed INTEGER NOT NULL DEFAULT 0,
+                success_at_90d INTEGER NOT NULL DEFAULT 0,
+                rate_label TEXT NOT NULL DEFAULT '',
+                display_order INTEGER NOT NULL DEFAULT 0
+            );
+            """);
+        app.Logger.LogInformation("Verified case_conferences, ML reporting, and admin report tables exist (CREATE IF NOT EXISTS).");
     }
     catch (Exception ex)
     {

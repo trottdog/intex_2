@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 /**
  * In production, VITE_API_BASE_URL must be set at build time (see `frontend/.env.production`).
@@ -50,6 +50,42 @@ export async function fetchJson<T>(path: string): Promise<T> {
   }
 
   return (await response.json()) as T
+}
+
+/** Authenticated JSON request (POST / PUT / DELETE). */
+export async function sendJson<T>(path: string, method: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method,
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`
+    try {
+      const parsed = (await response.json()) as { error?: string }
+      if (parsed.error) {
+        message = parsed.error
+      }
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message)
+  }
+
+  const text = await response.text()
+  if (!text) {
+    return undefined as T
+  }
+  return JSON.parse(text) as T
 }
 
 const IMPACT_CACHE_PREFIX = '/public/impact'
@@ -115,6 +151,10 @@ export type UseApiResourceOptions = {
 
 export function useApiResource<T>(path: string, emptyValue: T, options?: UseApiResourceOptions) {
   const useImpactCache = options?.sessionCacheImpact === true && isImpactPublicPath(path)
+  const [reloadNonce, setReloadNonce] = useState(0)
+  const reload = useCallback(() => {
+    setReloadNonce((n) => n + 1)
+  }, [])
 
   const [state, setState] = useState<ResourceState<T>>(() => {
     if (useImpactCache) {
@@ -163,7 +203,7 @@ export function useApiResource<T>(path: string, emptyValue: T, options?: UseApiR
 
     void run()
     return () => { active = false }
-  }, [path, useImpactCache])
+  }, [path, useImpactCache, reloadNonce])
 
-  return state
+  return { ...state, reload }
 }

@@ -1223,9 +1223,17 @@ p {
 
 .social-post-photo {
   width: 100%;
-  max-height: 280px;
+  max-height: min(62vh, 420px);
   object-fit: cover;
+  object-position: center top;
   display: block;
+}
+
+@media (max-width: 640px) {
+  .social-post-photo {
+    max-height: 52vh;
+    object-position: center top;
+  }
 }
 
 .social-post-overlay {
@@ -1998,6 +2006,21 @@ p {
   gap: 0.45rem;
   color: var(--text);
   font-weight: 600;
+}
+
+.field-note {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.field-note--warning {
+  color: var(--danger);
+}
+
+input[aria-invalid='true'] {
+  border-color: rgba(179, 79, 79, 0.42);
+  background: rgba(255, 244, 244, 0.92);
 }
 
 .full-span {

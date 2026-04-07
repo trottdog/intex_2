@@ -1,7 +1,8 @@
 using intex.Data;
 using intex.Security;
-using System.Security.Claims;
+using intex.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,49 +14,53 @@ namespace intex.Controllers;
 public class DonationsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
+    private readonly IFacilityDataScopeResolver _scopeResolver;
+    private readonly UserManager<ApplicationUser> _users;
 
-    public DonationsController(ApplicationDbContext db)
+    public DonationsController(
+        ApplicationDbContext db,
+        IFacilityDataScopeResolver scopeResolver,
+        UserManager<ApplicationUser> users)
     {
         _db = db;
+        _scopeResolver = scopeResolver;
+        _users = users;
     }
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<DonationDto>>> List(CancellationToken cancellationToken)
     {
-        if (IsAdminUser())
-        {
-            var adminRows = await _db.Donations
-                .AsNoTracking()
-                .OrderBy(d => d.DonationId)
-                .Select(d => new DonationDto(
-                    d.DonationId,
-                    d.SupporterId,
-                    d.DonationType,
-                    d.DonationDate,
-                    d.IsRecurring,
-                    d.CampaignName,
-                    d.ChannelSource,
-                    d.CurrencyCode,
-                    d.Amount,
-                    d.EstimatedValue,
-                    d.ImpactUnit,
-                    d.Notes,
-                    d.ReferralPostId))
-                .ToListAsync(cancellationToken);
+        var scope = await _scopeResolver.ResolveAsync(User, cancellationToken);
+        var q = _db.Donations.AsNoTracking();
 
-            return Ok(adminRows);
+        if (scope.IsFacilityAdmin)
+        {
+            if (scope.SafehouseIds.Count == 0)
+            {
+                return Ok(Array.Empty<DonationDto>());
+            }
+
+            q = q.Where(d => _db.DonationAllocations.Any(a =>
+                a.DonationId == d.DonationId &&
+                scope.SafehouseIds.Contains(a.SafehouseId)));
+        }
+        else if (!scope.IsUnrestricted && User.IsInRole(IntexRoles.Donor))
+        {
+            var uid = _users.GetUserId(User);
+            var supporterId = await _db.Supporters.AsNoTracking()
+                .Where(s => s.IdentityUserId == uid)
+                .Select(s => (long?)s.SupporterId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (supporterId is null)
+            {
+                return Ok(Array.Empty<DonationDto>());
+            }
+
+            q = q.Where(d => d.SupporterId == supporterId);
         }
 
-        if (!User.IsInRole(IntexRoles.Donor))
-            return Forbid();
-
-        var supporterId = await GetCurrentSupporterIdAsync(cancellationToken);
-        if (!supporterId.HasValue)
-            return Forbid();
-
-        var rows = await _db.Donations
-            .AsNoTracking()
-            .Where(d => d.SupporterId == supporterId.Value)
+        var rows = await q
             .OrderBy(d => d.DonationId)
             .Select(d => new DonationDto(
                 d.DonationId,
@@ -79,38 +84,31 @@ public class DonationsController : ControllerBase
     [HttpGet("{id:long}")]
     public async Task<ActionResult<DonationDto>> Get(long id, CancellationToken cancellationToken)
     {
-        if (!IsAdminUser())
+        var scope = await _scopeResolver.ResolveAsync(User, cancellationToken);
+        if (scope.IsUnrestricted)
         {
-            if (!User.IsInRole(IntexRoles.Donor))
-                return Forbid();
-
-            var supporterId = await GetCurrentSupporterIdAsync(cancellationToken);
-            if (!supporterId.HasValue)
-                return Forbid();
-
-            var donorRow = await _db.Donations
-                .AsNoTracking()
-                .Where(d => d.DonationId == id && d.SupporterId == supporterId.Value)
-                .Select(d => new DonationDto(
-                    d.DonationId,
-                    d.SupporterId,
-                    d.DonationType,
-                    d.DonationDate,
-                    d.IsRecurring,
-                    d.CampaignName,
-                    d.ChannelSource,
-                    d.CurrencyCode,
-                    d.Amount,
-                    d.EstimatedValue,
-                    d.ImpactUnit,
-                    d.Notes,
-                    d.ReferralPostId))
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (donorRow is null)
+            if (!await _db.Donations.AsNoTracking().AnyAsync(d => d.DonationId == id, cancellationToken))
+            {
                 return NotFound();
-
-            return Ok(donorRow);
+            }
+        }
+        else if (scope.IsFacilityAdmin)
+        {
+            if (!await FacilityAccess.DonationInScopeAsync(_db, scope, id, cancellationToken))
+            {
+                return NotFound();
+            }
+        }
+        else if (User.IsInRole(IntexRoles.Donor))
+        {
+            if (!await DonationOwnedByCurrentDonorAsync(id, cancellationToken))
+            {
+                return NotFound();
+            }
+        }
+        else
+        {
+            return NotFound();
         }
 
         var row = await _db.Donations
@@ -133,9 +131,20 @@ public class DonationsController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
 
         if (row is null)
+        {
             return NotFound();
+        }
 
         return Ok(row);
+    }
+
+    private async Task<bool> DonationOwnedByCurrentDonorAsync(long donationId, CancellationToken ct)
+    {
+        var uid = _users.GetUserId(User);
+        return await _db.Donations.AsNoTracking()
+            .AnyAsync(d =>
+                d.DonationId == donationId &&
+                _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
     }
 
     [HttpPost]
@@ -149,22 +158,6 @@ public class DonationsController : ControllerBase
     [HttpDelete("{id:long}")]
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public IActionResult Delete(long id) => NoContent();
-
-    private bool IsAdminUser() =>
-        User.IsInRole(IntexRoles.Admin) || User.IsInRole(IntexRoles.SuperAdmin);
-
-    private async Task<long?> GetCurrentSupporterIdAsync(CancellationToken cancellationToken)
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(userId))
-            return null;
-
-        return await _db.Supporters
-            .AsNoTracking()
-            .Where(s => s.IdentityUserId == userId)
-            .Select(s => (long?)s.SupporterId)
-            .FirstOrDefaultAsync(cancellationToken);
-    }
 }
 
 public record DonationDto(

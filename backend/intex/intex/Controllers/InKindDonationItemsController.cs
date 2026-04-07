@@ -1,7 +1,8 @@
 using intex.Data;
 using intex.Security;
-using System.Security.Claims;
+using intex.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,10 +14,17 @@ namespace intex.Controllers;
 public class InKindDonationItemsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
+    private readonly IFacilityDataScopeResolver _scopeResolver;
+    private readonly UserManager<ApplicationUser> _users;
 
-    public InKindDonationItemsController(ApplicationDbContext db)
+    public InKindDonationItemsController(
+        ApplicationDbContext db,
+        IFacilityDataScopeResolver scopeResolver,
+        UserManager<ApplicationUser> users)
     {
         _db = db;
+        _scopeResolver = scopeResolver;
+        _users = users;
     }
 
     /// <summary>Returns all in-kind line items for a donation. Empty array <c>[]</c> means no rows (valid), not “no response”.</summary>
@@ -26,7 +34,9 @@ public class InKindDonationItemsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (!await CanAccessDonationAsync(donationId, cancellationToken))
-            return IsAdminUser() ? NotFound() : Forbid();
+        {
+            return NotFound();
+        }
 
         var rows = await _db.InKindDonationItems
             .AsNoTracking()
@@ -54,7 +64,9 @@ public class InKindDonationItemsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (!await CanAccessDonationAsync(donationId, cancellationToken))
-            return IsAdminUser() ? NotFound() : Forbid();
+        {
+            return NotFound();
+        }
 
         var row = await _db.InKindDonationItems
             .AsNoTracking()
@@ -72,38 +84,36 @@ public class InKindDonationItemsController : ControllerBase
             .FirstOrDefaultAsync(cancellationToken);
 
         if (row is null)
+        {
             return NotFound();
+        }
 
         return Ok(row);
     }
 
-    private bool IsAdminUser() =>
-        User.IsInRole(IntexRoles.Admin) || User.IsInRole(IntexRoles.SuperAdmin);
-
-    private async Task<bool> CanAccessDonationAsync(long donationId, CancellationToken cancellationToken)
+    private async Task<bool> CanAccessDonationAsync(long donationId, CancellationToken ct)
     {
-        if (IsAdminUser())
+        var scope = await _scopeResolver.ResolveAsync(User, ct);
+        if (scope.IsUnrestricted)
         {
-            return await _db.Donations.AsNoTracking().AnyAsync(d => d.DonationId == donationId, cancellationToken);
+            return await _db.Donations.AsNoTracking().AnyAsync(d => d.DonationId == donationId, ct);
         }
 
-        if (!User.IsInRole(IntexRoles.Donor))
-            return false;
+        if (scope.IsFacilityAdmin)
+        {
+            return await FacilityAccess.DonationInScopeAsync(_db, scope, donationId, ct);
+        }
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrWhiteSpace(userId))
-            return false;
+        if (User.IsInRole(IntexRoles.Donor))
+        {
+            var uid = _users.GetUserId(User);
+            return await _db.Donations.AsNoTracking()
+                .AnyAsync(d =>
+                    d.DonationId == donationId &&
+                    _db.Supporters.Any(s => s.SupporterId == d.SupporterId && s.IdentityUserId == uid), ct);
+        }
 
-        var supporterId = await _db.Supporters.AsNoTracking()
-            .Where(s => s.IdentityUserId == userId)
-            .Select(s => (long?)s.SupporterId)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (!supporterId.HasValue)
-            return false;
-
-        return await _db.Donations.AsNoTracking()
-            .AnyAsync(d => d.DonationId == donationId && d.SupporterId == supporterId.Value, cancellationToken);
+        return false;
     }
 }
 
