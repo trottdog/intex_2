@@ -53,6 +53,12 @@ Refresh notebook deliverables:
 py -3 ml/scripts/build_phase5_notebooks.py
 ```
 
+Run the Phase B notebook-standardization pass and regenerate the shared notebook factory outputs:
+
+```powershell
+py -3 ml/scripts/run_phase_b_notebook_standardization.py
+```
+
 Export API payload examples and manifests:
 
 ```powershell
