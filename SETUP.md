@@ -1,4 +1,4 @@
-# Lighthouse INTEX — Setup & Login Credentials
+# Lighthouse Beacon — Setup & Login Credentials
 
 ## 0. Quick start (backend + frontend)
 
@@ -29,7 +29,7 @@ If the API fails at startup with `ConnectionStrings:DefaultConnection is missing
 
 ## 1. Database
 
-**If your Supabase (or local Postgres) database is already up to date** with the INTEX schema and Identity tables, you do **not** need to re-apply SQL. Use this section only when creating a new database or verifying drift.
+**If your Supabase (or local Postgres) database is already up to date** with the Beacon schema and Identity tables, you do **not** need to re-apply SQL. Use this section only when creating a new database or verifying drift.
 
 | Artifact | Purpose |
 |----------|---------|
@@ -86,12 +86,12 @@ Open **http://localhost:5173**. In development, API calls go to **`/api/...`** a
 1. Create **`frontend/.env.development.local`** (gitignored) — loaded only for **`npm run dev`**, so production **`npm run build`** does not embed this URL:
 
    ```bash
-   VITE_API_BASE_URL=https://intex2-a6d7e5dnave8hzd5.francecentral-01.azurewebsites.net
+   VITE_API_BASE_URL=https://intex-gtgzecb5avarh7gg.centralus-01.azurewebsites.net
    ```
 
    No trailing slash. Restart **`npm run dev`** after changing env vars. (A committed template is optional; see `frontend/.env.example`.)
 
-2. The Azure app must run with **`Auth:Cookie:CrossSite`** enabled so the `Intex.Auth` cookie can be set on cross-origin requests from `http://localhost:5173` (`SameSite=None; Secure`). The repo includes **`appsettings.Production.json`** with `"Auth:Cookie:CrossSite": true` — ensure **`ASPNETCORE_ENVIRONMENT=Production`** on App Service (or set the same flag via Application Settings: `Auth__Cookie__CrossSite=true`).
+2. The Azure app must run with **`Auth:Cookie:CrossSite`** enabled so the `Beacon.Auth` cookie can be set on cross-origin requests from `http://localhost:5173` (`SameSite=None; Secure`). The repo includes **`appsettings.Production.json`** with `"Auth:Cookie:CrossSite": true` — ensure **`ASPNETCORE_ENVIRONMENT=Production`** on App Service (or set the same flag via Application Settings: `Auth__Cookie__CrossSite=true`).
 
 3. CORS on the API already allows `http://localhost:5173` with credentials (`Program.cs`).
 
@@ -106,7 +106,7 @@ To switch back to a **local** API, delete or edit **`frontend/.env.development.l
 **Frontend auth (aligned with `RULES.md`):**
 
 - Session: `frontend/src/app/session.tsx` — calls `GET /auth/me` with credentials; maps Identity roles (`SuperAdmin`, `Admin`, `Donor`) to UI roles **case-insensitively**.
-- API helpers: `frontend/src/lib/authApi.ts` and `frontend/src/lib/api.ts` use **`credentials: 'include'`** so the `Intex.Auth` cookie is sent.
+- API helpers: `frontend/src/lib/authApi.ts` and `frontend/src/lib/api.ts` use **`credentials: 'include'`** so the `Beacon.Auth` cookie is sent.
 - **Staff scope:** `/auth/me` returns **`safehouseIds`** for `Admin` users; admin/caseload views filter mock or live lists by that scope where implemented.
 
 ## 5. Login credentials
