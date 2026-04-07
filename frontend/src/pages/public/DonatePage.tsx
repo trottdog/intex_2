@@ -3,20 +3,29 @@ import { Surface } from '../../components/ui'
 import { siteImages } from '../../siteImages'
 import { NAME_INPUT_PATTERN, NAME_INPUT_TITLE } from '../../utils/formValidation'
 
+const NAME_DIGIT_ERROR = 'Numbers are not allowed in donor names. Please try again.'
+
+function stripDigits(value: string) {
+  return value.replace(/\d+/g, '')
+}
+
 export function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
   const [submitted, setSubmitted] = useState(false)
   const [deletePending, setDeletePending] = useState(false)
   const [name, setName] = useState('')
+  const [nameError, setNameError] = useState('')
   const [amount, setAmount] = useState('250')
   const [purpose, setPurpose] = useState('Emergency care and stabilization')
 
   const resetDonationForm = () => {
     setSubmitted(false)
     setDeletePending(false)
+    setNameError('')
   }
 
   const handleDeleteDonation = () => {
     setName('')
+    setNameError('')
     setAmount('250')
     setPurpose('Emergency care and stabilization')
     resetDonationForm()
@@ -83,10 +92,22 @@ export function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
                 onSubmit={(event) => {
                   event.preventDefault()
                   const form = event.currentTarget
+                  const donorNameInput = form.elements.namedItem('donor-name') as HTMLInputElement | null
+
+                  if (donorNameInput?.value && /\d/.test(donorNameInput.value)) {
+                    donorNameInput.setCustomValidity(NAME_DIGIT_ERROR)
+                    donorNameInput.reportValidity()
+                    setNameError(NAME_DIGIT_ERROR)
+                    return
+                  }
+
+                  donorNameInput?.setCustomValidity('')
+
                   if (!form.checkValidity()) {
                     form.reportValidity()
                     return
                   }
+                  setNameError('')
                   setDeletePending(false)
                   setSubmitted(true)
                 }}
@@ -94,15 +115,45 @@ export function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
                 <label>
                   Donor name
                   <input
+                    name="donor-name"
                     value={name}
-                    onChange={(event) => setName(event.target.value)}
+                    onChange={(event) => {
+                      const sanitizedValue = stripDigits(event.target.value)
+                      setName(sanitizedValue)
+                      if (sanitizedValue !== event.target.value) {
+                        setNameError(NAME_DIGIT_ERROR)
+                        event.currentTarget.setCustomValidity(NAME_DIGIT_ERROR)
+                      } else {
+                        setNameError('')
+                        event.currentTarget.setCustomValidity('')
+                      }
+                    }}
+                    onPaste={(event) => {
+                      const pastedText = event.clipboardData.getData('text')
+                      if (!/\d/.test(pastedText)) {
+                        return
+                      }
+
+                      event.preventDefault()
+                      const sanitizedPaste = stripDigits(pastedText)
+                      const input = event.currentTarget
+                      const start = input.selectionStart ?? name.length
+                      const end = input.selectionEnd ?? name.length
+                      const nextValue = `${name.slice(0, start)}${sanitizedPaste}${name.slice(end)}`
+                      setName(nextValue)
+                      setNameError(NAME_DIGIT_ERROR)
+                      input.setCustomValidity(NAME_DIGIT_ERROR)
+                      input.reportValidity()
+                    }}
                     required
                     minLength={2}
                     maxLength={120}
                     pattern={NAME_INPUT_PATTERN}
                     title={NAME_INPUT_TITLE}
                     placeholder="Maya Thompson"
+                    aria-invalid={Boolean(nameError) || undefined}
                   />
+                  {nameError ? <p className="field-note field-note--warning" role="alert">{nameError}</p> : null}
                 </label>
                 <label>
                   Donation amount
