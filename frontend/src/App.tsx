@@ -1810,9 +1810,9 @@ function CaseloadPage() {
   )
   const filteredResidents = residentsScoped.filter((resident) => {
     const matchesSearch =
-      resident.caseControlNo.toLowerCase().includes(search.toLowerCase()) ||
-      resident.assignedSocialWorker.toLowerCase().includes(search.toLowerCase()) ||
-      resident.caseCategory.toLowerCase().includes(search.toLowerCase())
+      (resident.caseControlNo ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (resident.assignedSocialWorker ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (resident.caseCategory ?? '').toLowerCase().includes(search.toLowerCase())
     const matchesRisk = riskFilter === 'All' || resident.currentRiskLevel === riskFilter
     const matchesStatus = statusFilter === 'All' || resident.caseStatus === statusFilter
     const matchesCategory = categoryFilter === 'All' || resident.caseCategory === categoryFilter
@@ -2239,9 +2239,9 @@ function DonorsPage() {
   const [formSubmitted, setFormSubmitted] = useState(false)
   const filteredSupporters = supporters.data.filter((supporter) => {
     const matchesSearch =
-      supporter.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      supporter.supporterType.toLowerCase().includes(search.toLowerCase()) ||
-      supporter.region.toLowerCase().includes(search.toLowerCase())
+      (supporter.displayName ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (supporter.supporterType ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (supporter.region ?? '').toLowerCase().includes(search.toLowerCase())
     const matchesStatus = statusFilter === 'All' || supporter.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -2340,10 +2340,11 @@ function ContributionsPage() {
   const filteredDonations = donations.data.filter((donation) => {
     const matchesCampaign =
       campaignFilter === 'All campaigns' || donation.campaignName === campaignFilter
+    const q = search.toLowerCase()
     const matchesSearch =
-      donation.campaignName.toLowerCase().includes(search.toLowerCase()) ||
-      donation.channelSource.toLowerCase().includes(search.toLowerCase()) ||
-      donation.donationType.toLowerCase().includes(search.toLowerCase())
+      (donation.campaignName ?? '').toLowerCase().includes(q) ||
+      (donation.channelSource ?? '').toLowerCase().includes(q) ||
+      (donation.donationType ?? '').toLowerCase().includes(q)
     return matchesCampaign && matchesSearch
   })
 
