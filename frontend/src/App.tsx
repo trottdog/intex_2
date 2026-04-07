@@ -1661,8 +1661,8 @@ function DonorDashboardPage() {
           <DataTable
             columns={['Date', 'Campaign', 'Amount', 'Detail']}
             rows={donations.data.map((donation) => [
-              donation.donationDate,
-              donation.campaignName,
+              asText(donation.donationDate, '—'),
+              asText(donation.campaignName, '—'),
               formatAmount(donation.amount),
               <AppLink to={`/app/donor/history/${donation.donationId}`}>Open</AppLink>,
             ])}
@@ -1696,9 +1696,9 @@ function DonorHistoryPage() {
         <DataTable
           columns={['Date', 'Type', 'Campaign', 'Amount', 'Detail']}
           rows={donations.data.map((donation) => [
-            donation.donationDate,
-            donation.donationType,
-            donation.campaignName,
+            asText(donation.donationDate, '—'),
+            asText(donation.donationType, '—'),
+            asText(donation.campaignName, '—'),
             formatAmount(donation.amount),
             <AppLink to={`/app/donor/history/${donation.donationId}`}>View detail</AppLink>,
           ])}
@@ -1943,10 +1943,10 @@ function CaseloadPage() {
         <DataTable
           columns={['Case no.', 'Status', 'Category', 'Worker', 'Risk', 'Open']}
           rows={filteredResidents.map((resident) => [
-            resident.caseControlNo,
-            resident.caseStatus,
-            resident.caseCategory,
-            resident.assignedSocialWorker,
+            asText(resident.caseControlNo, '—'),
+            asText(resident.caseStatus, '—'),
+            asText(resident.caseCategory, '—'),
+            asText(resident.assignedSocialWorker, '—'),
             <StatusPill tone={resident.currentRiskLevel === 'High' ? 'danger' : resident.currentRiskLevel === 'Moderate' ? 'warning' : 'success'}>
               {resident.currentRiskLevel}
             </StatusPill>,
@@ -2376,11 +2376,11 @@ function DonorsPage() {
         <DataTable
           columns={['Name', 'Type', 'Region', 'Status', 'Channel']}
           rows={filteredSupporters.map((supporter) => [
-            supporter.displayName,
-            supporter.supporterType,
-            supporter.region,
+            asText(supporter.displayName, '—'),
+            asText(supporter.supporterType, '—'),
+            asText(supporter.region, '—'),
             <StatusPill tone={supporter.status === 'At risk' ? 'warning' : 'success'}>{supporter.status}</StatusPill>,
-            supporter.acquisitionChannel,
+            asText(supporter.acquisitionChannel, '—'),
           ])}
         />
         )}
@@ -2481,9 +2481,9 @@ function ContributionsPage() {
         <DataTable
           columns={['Date', 'Campaign', 'Type', 'Amount', 'Detail']}
           rows={filteredDonations.map((donation) => [
-            donation.donationDate,
-            donation.campaignName,
-            donation.donationType,
+            asText(donation.donationDate, '—'),
+            asText(donation.campaignName, '—'),
+            asText(donation.donationType, '—'),
             formatAmount(donation.amount),
             <AppLink to={`/app/admin/contributions/${donation.donationId}`}>Open detail</AppLink>,
           ])}
@@ -2531,7 +2531,7 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
       description="Contribution metadata, allocations, and any in-kind items."
     >
       <div className="stat-grid">
-        <StatCard label="Campaign" value={donation.campaignName} />
+        <StatCard label="Campaign" value={asText(donation.campaignName, '—')} />
         <StatCard label="Amount" value={formatAmount(donation.amount)} />
         <StatCard label="Impact unit" value={donation.impactUnit} />
       </div>
