@@ -53,7 +53,12 @@ def load_notebook_context(
         config = load_predictive_pipeline_config(predictive_impl)
         dataset = build_predictive_dataset(predictive_impl, save_output=False)
     else:
-        dataset = load_processed_table(dataset_name)
+        try:
+            dataset = load_processed_table(dataset_name)
+        except FileNotFoundError:
+            if predictive_impl is None:
+                raise
+            dataset = build_predictive_dataset(predictive_impl, save_output=True)
 
     return {
         "pipeline_name": effective_pipeline,

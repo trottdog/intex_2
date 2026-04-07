@@ -71,6 +71,14 @@ Score a CSV in batch mode:
 py -3 ml/scripts/score_batch.py donor_retention --input some_file.csv
 ```
 
+## Phase C Command
+
+Run the donor and outreach expansion pass, including the shared donor snapshot table, the fast Phase C predictive pipelines, and refreshed notebook deliverables:
+
+```powershell
+py -3 ml/scripts/run_phase_c_donor_outreach.py
+```
+
 ## Phase 6 Command
 
 Run the full nightly-style ML refresh locally without writing back to Supabase:

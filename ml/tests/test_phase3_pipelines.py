@@ -15,12 +15,15 @@ from ml.src.pipelines.social_media_conversion.build_dataset import (
 
 
 def test_phase3_registry_lists_expected_pipelines() -> None:
-    assert list_predictive_pipelines() == [
+    pipelines = list_predictive_pipelines()
+
+    for expected in [
         "donor_retention",
         "reintegration_readiness",
         "resident_risk",
         "social_media_conversion",
-    ]
+    ]:
+        assert expected in pipelines
 
 
 def test_phase3_dataset_builders_sort_and_cast_targets() -> None:
