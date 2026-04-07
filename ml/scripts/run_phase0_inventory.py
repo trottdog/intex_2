@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from ml.src.config.paths import REPORTS_TABLES_DIR
 from ml.src.data.joins import relationship_map_frame
-from ml.src.data.loaders import load_raw_tables, resolve_raw_data_dir
+from ml.src.data.loaders import describe_raw_source, load_raw_tables
 from ml.src.data.validation import (
     build_date_inventory,
     leakage_risk_summary,
@@ -24,8 +24,8 @@ from ml.src.data.validation import (
 def main() -> None:
     REPORTS_TABLES_DIR.mkdir(parents=True, exist_ok=True)
 
-    source_dir = resolve_raw_data_dir()
-    tables = load_raw_tables(data_dir=source_dir)
+    tables = load_raw_tables()
+    source_label = describe_raw_source(required_tables=tables.keys())
 
     schema_summary(tables).to_csv(
         REPORTS_TABLES_DIR / "schema_summary.csv",
@@ -48,7 +48,7 @@ def main() -> None:
         index=False,
     )
 
-    print(f"Loaded {len(tables)} tables from {source_dir}")
+    print(f"Loaded {len(tables)} tables from {source_label}")
     print(f"Wrote Phase 0 outputs to {REPORTS_TABLES_DIR}")
 
 

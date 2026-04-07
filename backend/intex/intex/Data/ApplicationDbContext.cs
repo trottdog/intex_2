@@ -52,12 +52,27 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<PublicImpactSnapshot> PublicImpactSnapshots => Set<PublicImpactSnapshot>();
 
+    public DbSet<MlPipelineRun> MlPipelineRuns => Set<MlPipelineRun>();
+
+    public DbSet<MlPredictionSnapshot> MlPredictionSnapshots => Set<MlPredictionSnapshot>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<PublicImpactSnapshot>(e =>
             e.Property(x => x.MetricPayloadJson).HasColumnType("jsonb"));
+
+        modelBuilder.Entity<MlPipelineRun>(e =>
+        {
+            e.Property(x => x.MetricsJson).HasColumnType("jsonb");
+            e.Property(x => x.ManifestJson).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<MlPredictionSnapshot>(e =>
+        {
+            e.Property(x => x.ContextJson).HasColumnType("jsonb");
+        });
 
         modelBuilder.Entity<StaffSafehouseAssignment>(e =>
         {

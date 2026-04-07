@@ -11,7 +11,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from ml.src.config.paths import REPORTS_FIGURES_DIR, REPORTS_TABLES_DIR
-from ml.src.data.loaders import load_raw_tables, resolve_raw_data_dir
+from ml.src.data.loaders import describe_raw_source, load_raw_tables
 from ml.src.data.profiling import (
     KEY_PHASE1_TABLES,
     PRIMARY_DATE_COLUMNS,
@@ -29,7 +29,8 @@ def main() -> None:
     REPORTS_TABLES_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    tables = load_raw_tables(data_dir=resolve_raw_data_dir())
+    tables = load_raw_tables()
+    source_label = describe_raw_source(required_tables=tables.keys())
 
     build_table_profile_report(tables).to_csv(
         REPORTS_TABLES_DIR / "phase1_table_profile_report.csv",
@@ -78,7 +79,7 @@ def main() -> None:
                 figures_dir / f"{table_name}_{date_column}_coverage.png",
             )
 
-    print(f"Loaded {len(tables)} tables")
+    print(f"Loaded {len(tables)} tables from {source_label}")
     print(f"Wrote Phase 1 table outputs to {REPORTS_TABLES_DIR}")
     print(f"Wrote Phase 1 figures to {figures_dir}")
 
