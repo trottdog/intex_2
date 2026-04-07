@@ -112,8 +112,6 @@ public class AdminUsersController : ControllerBase
             return BadRequest(new { error = "Status must be active or locked." });
         }
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
-
         user.FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim();
         var update = await _userManager.UpdateAsync(user);
         if (!update.Succeeded)
@@ -169,7 +167,6 @@ public class AdminUsersController : ControllerBase
         }
 
         await _db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
 
         var updated = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
         return Ok(await MapUserAsync(updated, ct));
