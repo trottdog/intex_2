@@ -246,6 +246,7 @@ def save_training_outputs(
         "split_col": result.model_bundle["split_col"],
         "selection_metric": result.model_bundle["selection_metric"],
         "cutoff_date": result.model_bundle["cutoff_date"],
+        "task_type": result.model_bundle["task_type"],
         **result.best_metrics,
     }
     with (model_dir / "metrics.json").open("w", encoding="utf-8") as handle:

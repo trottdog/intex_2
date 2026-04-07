@@ -32,6 +32,7 @@ export type MlPredictionFeed = {
   modelName?: string | null
   trainedAt?: string | null
   metrics?: MlJsonRecord | null
+  manifest?: MlJsonRecord | null
   predictions: MlPredictionRecord[]
 }
 
@@ -41,6 +42,7 @@ export type MlEntityInsight = {
   modelName?: string | null
   trainedAt?: string | null
   metrics?: MlJsonRecord | null
+  manifest?: MlJsonRecord | null
   prediction: MlPredictionRecord
 }
 
@@ -51,6 +53,23 @@ const mlDateTimeFormat = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
   minute: '2-digit',
 })
+const currencyFormat = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+const wholeNumberFormat = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 0,
+})
+const positiveSignalPipelines = new Set([
+  'best_posting_time',
+  'counseling_progress',
+  'donor_upgrade',
+  'education_improvement',
+  'home_visitation_outcome',
+  'reintegration_readiness',
+  'social_media_conversion',
+])
 
 function asOptionalNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -72,6 +91,24 @@ export function formatMlScore(score: number | null | undefined): string {
   const numeric = asOptionalNumber(score)
   if (numeric == null) return '—'
   return `${Math.round(numeric * 100)}%`
+}
+
+export function formatMlPredictionValue(
+  pipelineName: string,
+  score: number | null | undefined,
+): string {
+  const numeric = asOptionalNumber(score)
+  if (numeric == null) return 'â€”'
+
+  if (pipelineName === 'next_donation_amount') {
+    return currencyFormat.format(numeric)
+  }
+
+  if (pipelineName === 'resource_demand') {
+    return `${wholeNumberFormat.format(numeric)} residents`
+  }
+
+  return formatMlScore(numeric)
 }
 
 export function summarizeMlMetrics(metrics: MlJsonRecord | null | undefined): string {
@@ -100,7 +137,7 @@ export function getMlSignalTone(
   score: number | null | undefined,
 ): 'default' | 'success' | 'warning' | 'danger' {
   const numeric = asOptionalNumber(score) ?? 0
-  const positiveSignal = pipelineName === 'reintegration_readiness' || pipelineName === 'social_media_conversion'
+  const positiveSignal = positiveSignalPipelines.has(pipelineName)
 
   if (positiveSignal) {
     if (numeric >= 0.7) return 'success'
@@ -139,6 +176,18 @@ export function getMlSignalLabel(
   if (pipelineName === 'social_media_conversion') {
     if (numeric >= 0.7) return 'High potential'
     if (numeric >= 0.45) return 'Worth testing'
+    return 'Lower potential'
+  }
+
+  if (pipelineName === 'capacity_pressure') {
+    if (numeric >= 0.7) return 'Pressure risk'
+    if (numeric >= 0.45) return 'Watch'
+    return 'Stable'
+  }
+
+  if (positiveSignalPipelines.has(pipelineName)) {
+    if (numeric >= 0.7) return 'High potential'
+    if (numeric >= 0.45) return 'Worth reviewing'
     return 'Lower potential'
   }
 

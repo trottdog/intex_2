@@ -47,6 +47,19 @@ def transform_features(
     )
 
 
+def resolve_task_type(model_bundle: dict[str, Any]) -> str:
+    """Resolve the saved pipeline task type from a model bundle."""
+
+    task_type = str(model_bundle.get("task_type") or "").strip().lower()
+    if task_type in {"classification", "regression"}:
+        return task_type
+
+    model = model_bundle.get("model")
+    if hasattr(model, "predict_proba"):
+        return "classification"
+    return "regression"
+
+
 def predict_dataframe(
     df: pd.DataFrame,
     *,
@@ -58,13 +71,20 @@ def predict_dataframe(
     bundle = model_bundle or load_model_bundle(str(pipeline_name))
     transformed = transform_features(df, model_bundle=bundle)
     model = bundle["model"]
+    task_type = resolve_task_type(bundle)
 
-    predictions = pd.Series(model.predict(transformed), index=df.index, dtype="int64")
+    raw_predictions = pd.Series(model.predict(transformed), index=df.index)
+    if task_type == "classification":
+        predictions = raw_predictions.astype("int64")
+    else:
+        predictions = pd.to_numeric(raw_predictions, errors="coerce")
     scored = df.copy()
     scored["prediction"] = predictions
 
-    if hasattr(model, "predict_proba"):
+    if task_type == "classification" and hasattr(model, "predict_proba"):
         scores = model.predict_proba(transformed)[:, 1]
         scored["prediction_score"] = scores
+    else:
+        scored["prediction_score"] = pd.to_numeric(predictions, errors="coerce")
 
     return scored

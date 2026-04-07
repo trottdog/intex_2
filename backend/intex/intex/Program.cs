@@ -291,8 +291,8 @@ foreach (var route in spaPublicRoutes)
     app.MapGet(route, () => ServeSpaIndex());
 }
 
-// Deep-link reload support for SPA app routes (e.g. /app/admin/contributions).
-app.MapGet("/app/{*path}", () => ServeSpaIndex());
+// Redirect direct app deep links to home instead of returning a server 404.
+app.MapGet("/app/{*path}", () => Results.Redirect("/"));
 
 var apiRouteRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {

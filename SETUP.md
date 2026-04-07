@@ -125,8 +125,8 @@ Passwords must match **how users were created**: SQL hashes vs. `dotnet user-sec
 
 | Field    | Value (example for safehouse 1, slot 1)  |
 |----------|------------------------------------------|
-| Email    | `sh01.staff1@lighthouse.intex`           |
-| Password | `LighthouseStaff01`                      |
+| Email    | `test@test.com`           |
+| Password | `123456789012Qw`                      |
 | Role     | Admin                                    |
 
 Pattern: `sh{NN}.staff{1|2}@lighthouse.intex` where NN = safehouse id zero-padded to 2 digits.
