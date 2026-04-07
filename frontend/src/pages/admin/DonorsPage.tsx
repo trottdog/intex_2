@@ -20,6 +20,7 @@ import {
   Surface,
 } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
+import { NAME_INPUT_PATTERN, NAME_INPUT_TITLE } from '../../utils/formValidation'
 import { asLowerText, asRecord, asText } from '../../utils/helpers'
 
 export function DonorsPage() {
@@ -51,8 +52,29 @@ export function DonorsPage() {
           {formSubmitted ? (
             <div className="success-panel"><h3>Supporter added</h3><p>The new supporter profile has been recorded. In production this would POST to <code>/supporters</code>.</p></div>
           ) : (
-            <form className="form-grid" onSubmit={(e) => { e.preventDefault(); setFormSubmitted(true) }}>
-              <label className="full-span">Full name / organization<input required placeholder="e.g. Maria dela Cruz" /></label>
+            <form
+              className="form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const form = event.currentTarget
+                if (!form.checkValidity()) {
+                  form.reportValidity()
+                  return
+                }
+                setFormSubmitted(true)
+              }}
+            >
+              <label className="full-span">
+                Full name / organization
+                <input
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  pattern={NAME_INPUT_PATTERN}
+                  title={NAME_INPUT_TITLE}
+                  placeholder="e.g. Maria dela Cruz"
+                />
+              </label>
               <label>
                 Supporter type
                 <select defaultValue="Monetary donor">
@@ -67,8 +89,8 @@ export function DonorsPage() {
                 Status
                 <select defaultValue="Active"><option>Active</option><option>Inactive</option></select>
               </label>
-              <label className="full-span">Email<input type="email" placeholder="email@example.com" /></label>
-              <label className="full-span">Region / location<input placeholder="e.g. Metro Manila" /></label>
+              <label className="full-span">Email<input type="email" maxLength={254} placeholder="email@example.com" /></label>
+              <label className="full-span">Region / location<input minLength={2} maxLength={120} placeholder="e.g. Metro Manila" /></label>
               <button className="primary-button full-span" type="submit">Save supporter</button>
             </form>
           )}

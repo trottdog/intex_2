@@ -71,6 +71,7 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              maxLength={254}
               required
             />
           </label>
@@ -81,6 +82,8 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              minLength={8}
+              maxLength={128}
               required
             />
           </label>
