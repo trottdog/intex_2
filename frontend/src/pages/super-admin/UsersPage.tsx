@@ -30,6 +30,7 @@ export function UsersPage() {
 
   const [createEmail, setCreateEmail] = useState('')
   const [createPassword, setCreatePassword] = useState('')
+  const [showCreatePassword, setShowCreatePassword] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createRole, setCreateRole] = useState<(typeof roleApiValues)[number]>('Admin')
   const [createSafehouses, setCreateSafehouses] = useState<number[]>([])
@@ -80,6 +81,7 @@ export function UsersPage() {
       })
       setCreateEmail('')
       setCreatePassword('')
+      setShowCreatePassword(false)
       setCreateName('')
       setCreateRole('Admin')
       setCreateSafehouses([])
@@ -180,7 +182,24 @@ export function UsersPage() {
             </label>
             <label className="full-span">
               Temporary password
-              <input required type="password" autoComplete="new-password" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
+              <div className="password-input-row">
+                <input
+                  required
+                  type={showCreatePassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowCreatePassword((value) => !value)}
+                  aria-label={showCreatePassword ? 'Hide temporary password' : 'Show temporary password'}
+                  aria-pressed={showCreatePassword}
+                >
+                  {showCreatePassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </label>
             <label className="full-span">
               Display name

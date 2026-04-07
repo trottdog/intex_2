@@ -1114,6 +1114,10 @@ p {
   display: block;
 }
 
+.director-photo-wrap img[src*="Russell-Osguthorpe_lighthouse"] {
+  object-position: center 40%;
+}
+
 .director-card h3 {
   padding: 0.65rem 0.75rem 0.25rem;
   font-size: 0.98rem;
@@ -2011,6 +2015,31 @@ p {
   gap: 0.45rem;
   color: var(--text);
   font-weight: 600;
+}
+
+.password-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.password-input-row input {
+  flex: 1;
+}
+
+.password-toggle {
+  width: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--text);
+  padding: 0.75rem 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .field-note {
