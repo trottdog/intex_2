@@ -17,6 +17,32 @@ type UserRecord = {
 
 const roleApiValues = ['Donor', 'Admin', 'SuperAdmin'] as const
 
+type SuccessFeedback = {
+  kind: 'create' | 'delete'
+  message: string
+}
+
+function SuccessIcon({ kind }: { kind: SuccessFeedback['kind'] }) {
+  if (kind === 'delete') {
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6" />
+        <path d="M14 11v6" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.2 2.2 4.8-4.8" />
+    </svg>
+  )
+}
+
 export function UsersPage() {
   const users = useApiResource<UserRecord[]>('/admin/users', [])
   const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
@@ -27,7 +53,7 @@ export function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [formSuccess, setFormSuccess] = useState<string | null>(null)
+  const [formSuccess, setFormSuccess] = useState<SuccessFeedback | null>(null)
 
   const [createEmail, setCreateEmail] = useState('')
   const [createPassword, setCreatePassword] = useState('')
@@ -101,7 +127,7 @@ export function UsersPage() {
         }
       }
 
-      setFormSuccess(`Account created successfully for ${email}.`)
+      setFormSuccess({ kind: 'create', message: `Account created successfully for ${email}.` })
       setCreateEmail('')
       setCreatePassword('')
       setShowCreatePassword(false)
@@ -158,6 +184,7 @@ export function UsersPage() {
     try {
       await sendJson(`/admin/users/${id}`, 'DELETE', undefined)
       setEditingId(null)
+      setFormSuccess({ kind: 'delete', message: 'User deleted successfully.' })
       users.reload()
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Could not delete user')
@@ -369,7 +396,22 @@ export function UsersPage() {
             </div>
           }
         >
-          {formSuccess ? <p style={{ color: '#1b5e20', marginBottom: '0.75rem' }}>{formSuccess}</p> : null}
+          {formSuccess ? (
+            <p
+              style={{
+                color: '#1b5e20',
+                marginBottom: '0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 600,
+              }}
+              role="status"
+            >
+              <SuccessIcon kind={formSuccess.kind} />
+              <span>{formSuccess.message}</span>
+            </p>
+          ) : null}
           {users.error ? <ErrorState title="Could not load users" description={users.error} /> : null}
           <FilterToolbar>
             <label>
