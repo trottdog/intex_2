@@ -155,8 +155,19 @@ public class AuthController : ControllerBase
             return Unauthorized(new { error = "Not authenticated." });
         }
 
-        var status = await BuildMfaStatusAsync(user, Array.Empty<string>());
-        return Ok(status);
+        try
+        {
+            var status = await BuildMfaStatusAsync(user, Array.Empty<string>());
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load MFA status for user {UserId}.", user.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Unable to load MFA settings right now. Please try again."
+            });
+        }
     }
 
     [HttpPost("mfa/enable")]
@@ -197,8 +208,19 @@ public class AuthController : ControllerBase
         var recoveryCodes = (await _userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10))?.ToArray() ?? Array.Empty<string>();
         _logger.LogInformation("MFA enabled for user {UserId}.", user.Id);
 
-        var status = await BuildMfaStatusAsync(user, recoveryCodes);
-        return Ok(status);
+        try
+        {
+            var status = await BuildMfaStatusAsync(user, recoveryCodes);
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MFA enabled but response generation failed for user {UserId}.", user.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "MFA was updated, but status refresh failed. Reload and verify your MFA status."
+            });
+        }
     }
 
     [HttpPost("mfa/disable")]
@@ -224,8 +246,19 @@ public class AuthController : ControllerBase
         await _signInManager.ForgetTwoFactorClientAsync();
         _logger.LogInformation("MFA disabled for user {UserId}.", user.Id);
 
-        var status = await BuildMfaStatusAsync(user, Array.Empty<string>());
-        return Ok(status);
+        try
+        {
+            var status = await BuildMfaStatusAsync(user, Array.Empty<string>());
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MFA disabled but response generation failed for user {UserId}.", user.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "MFA was updated, but status refresh failed. Reload and verify your MFA status."
+            });
+        }
     }
 
     [HttpPost("mfa/recovery-codes/reset")]
@@ -246,8 +279,19 @@ public class AuthController : ControllerBase
         var recoveryCodes = (await _userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10))?.ToArray() ?? Array.Empty<string>();
         _logger.LogInformation("Recovery codes reset for user {UserId}.", user.Id);
 
-        var status = await BuildMfaStatusAsync(user, recoveryCodes);
-        return Ok(status);
+        try
+        {
+            var status = await BuildMfaStatusAsync(user, recoveryCodes);
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Recovery codes reset but response generation failed for user {UserId}.", user.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Recovery codes were updated, but status refresh failed. Reload and verify your MFA status."
+            });
+        }
     }
 
     private async Task<object> BuildAuthenticatedPayloadAsync(ApplicationUser user, CancellationToken cancellationToken)
