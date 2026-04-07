@@ -16,7 +16,6 @@ jobs:
   retrain-and-publish:
     runs-on: ubuntu-latest
     env:
-      ML_USE_SUPABASE: 'true'
       SUPABASE_DB_CONNECTION_STRING: ${{ secrets.SUPABASE_DB_CONNECTION_STRING }}
       PYTHONUTF8: '1'
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -39,6 +38,8 @@ jobs:
         run: python -m pytest ml/tests
 
       - name: Retrain and publish nightly ML outputs
+        env:
+          ML_USE_SUPABASE: 'true'
         run: python ml/scripts/refresh_supabase_ml.py
 
       - name: Upload nightly ML artifacts
