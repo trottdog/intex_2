@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactElement, type ReactNode } from 'react'
 import { matchPath } from './app/router'
 import {
   mapMeToSessionUser,
@@ -59,6 +59,60 @@ const impactCurrency = new Intl.NumberFormat('en-PH', {
 const emptyImpactMetrics: ImpactMetricsPublic = { donationCount: 0, totalDonationAmount: 0, residentCount: 0, safehouseCount: 0 }
 const emptyDonationSummary: PublicDonationSummary = { summaries: [] }
 
+function asText(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value
+  if (value == null) return fallback
+  return String(value)
+}
+
+function asLowerText(value: unknown): string {
+  return asText(value).toLowerCase()
+}
+
+function asFiniteNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function formatAmount(value: unknown): string {
+  return `$${asFiniteNumber(value).toLocaleString()}`
+}
+
+function compareDateDesc(a: unknown, b: unknown): number {
+  return asText(b).localeCompare(asText(a))
+}
+
+type AppErrorBoundaryState = { hasError: boolean }
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, AppErrorBoundaryState> {
+  state: AppErrorBoundaryState = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Unhandled frontend render error', error, info)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main className="page-shell">
+          <section className="page-section">
+            <ErrorState
+              title="This page hit an unexpected error"
+              description="Refresh and try again. If it keeps happening, please report the page URL and your recent action."
+            />
+          </section>
+        </main>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function filterResidentsForSessionUser(user: SessionUser, residents: Resident[]): Resident[] {
   if (user.role === 'super-admin') {
     return residents
@@ -107,8 +161,9 @@ function canSessionUserAccessSafehouse(user: SessionUser, safehouseId: number): 
   return false
 }
 
-function formatDonationTypeLabel(raw: string): string {
-  const spaced = raw.replace(/([a-z])([A-Z])/g, '$1 $2')
+function formatDonationTypeLabel(raw: unknown): string {
+  const normalized = asText(raw, 'Unknown')
+  const spaced = normalized.replace(/([a-z])([A-Z])/g, '$1 $2')
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase()
 }
 
@@ -151,10 +206,12 @@ function CookieConsentBanner() {
 
 function App() {
   return (
-    <SessionProvider>
-      <IntexApp />
-      <CookieConsentBanner />
-    </SessionProvider>
+    <AppErrorBoundary>
+      <SessionProvider>
+        <IntexApp />
+        <CookieConsentBanner />
+      </SessionProvider>
+    </AppErrorBoundary>
   )
 }
 
@@ -1170,7 +1227,7 @@ function SocialPage() {
               </div>
               <p className="social-post-text">{post.text}</p>
               <div className="social-post-footer">
-                <span>♥ {post.likes.toLocaleString()}</span>
+                <span>♥ {asFiniteNumber(post.likes).toLocaleString()}</span>
                 <span>💬 {post.comments}</span>
               </div>
             </div>
@@ -1595,7 +1652,7 @@ function DonorDashboardPage() {
       </div>
       <div className="stat-grid">
         <StatCard label="Total gifts" value={String(donations.data.length)} />
-        <StatCard label="Lifetime giving" value={`$${donations.data.reduce((sum, d) => sum + d.amount, 0).toLocaleString()}`} />
+        <StatCard label="Lifetime giving" value={formatAmount(donations.data.reduce((sum, d) => sum + asFiniteNumber(d.amount), 0))} />
       </div>
       <Surface title="Recent giving" subtitle="Your personal donation history.">
         {donations.data.length === 0 ? (
@@ -1606,7 +1663,7 @@ function DonorDashboardPage() {
             rows={donations.data.map((donation) => [
               donation.donationDate,
               donation.campaignName,
-              `$${donation.amount.toLocaleString()}`,
+              formatAmount(donation.amount),
               <AppLink to={`/app/donor/history/${donation.donationId}`}>Open</AppLink>,
             ])}
           />
@@ -1642,7 +1699,7 @@ function DonorHistoryPage() {
             donation.donationDate,
             donation.donationType,
             donation.campaignName,
-            `$${donation.amount.toLocaleString()}`,
+            formatAmount(donation.amount),
             <AppLink to={`/app/donor/history/${donation.donationId}`}>View detail</AppLink>,
           ])}
         />
@@ -1808,11 +1865,12 @@ function CaseloadPage() {
   const safehouseOptions = safehouses.data.filter((s) =>
     residentsScoped.some((r) => r.safehouseId === s.safehouseId),
   )
+  const normalizedSearch = asLowerText(search)
   const filteredResidents = residentsScoped.filter((resident) => {
     const matchesSearch =
-      (resident.caseControlNo ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (resident.assignedSocialWorker ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (resident.caseCategory ?? '').toLowerCase().includes(search.toLowerCase())
+      asLowerText(resident.caseControlNo).includes(normalizedSearch) ||
+      asLowerText(resident.assignedSocialWorker).includes(normalizedSearch) ||
+      asLowerText(resident.caseCategory).includes(normalizedSearch)
     const matchesRisk = riskFilter === 'All' || resident.currentRiskLevel === riskFilter
     const matchesStatus = statusFilter === 'All' || resident.caseStatus === statusFilter
     const matchesCategory = categoryFilter === 'All' || resident.caseCategory === categoryFilter
@@ -2079,7 +2137,7 @@ function ResidentSubpageLive({ residentId, apiPath, title, description }: { resi
       {resource.isLoading ? (
         <SkeletonSurface title={title}><SkeletonStackRows count={3} /></SkeletonSurface>
       ) : resource.error ? (
-        <ErrorState title={`Could not load ${title.toLowerCase()}`} description={resource.error} />
+        <ErrorState title={`Could not load ${asLowerText(title)}`} description={resource.error} />
       ) : resource.data.length === 0 ? (
         <EmptyState title="No records yet" description="This resident does not have entries in this section yet." />
       ) : (
@@ -2114,7 +2172,7 @@ function ProcessRecordingsPage({ residentId }: { residentId: number }) {
       {items.length === 0 ? (
         <EmptyState title="No recordings yet" description="No counseling sessions have been logged for this resident." />
       ) : (
-        items.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
+        items.slice().sort((a, b) => compareDateDesc(a.date, b.date)).map((item) => (
           <Surface key={item.id} title={item.title} subtitle={item.date}>
             <div className="stack-list">
               <div className="stack-row">
@@ -2163,7 +2221,7 @@ function HomeVisitationsPage({ residentId }: { residentId: number }) {
       {visits.length === 0 ? (
         <EmptyState title="No visits yet" description="No home visitations have been logged for this resident." />
       ) : (
-        visits.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
+        visits.slice().sort((a, b) => compareDateDesc(a.date, b.date)).map((item) => (
           <Surface key={item.id} title={item.title} subtitle={item.date}>
             <div className="stack-list">
               <div className="stack-row">
@@ -2197,7 +2255,7 @@ function HomeVisitationsPage({ residentId }: { residentId: number }) {
       {conferences.length === 0 ? (
         <EmptyState title="No conferences yet" description="No case conferences have been logged for this resident." />
       ) : (
-        conferences.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => (
+        conferences.slice().sort((a, b) => compareDateDesc(a.date, b.date)).map((item) => (
           <Surface key={item.id} title={item.title} subtitle={item.date}>
             <div className="stack-list">
               <div className="stack-row">
@@ -2237,11 +2295,12 @@ function DonorsPage() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [showForm, setShowForm] = useState(false)
   const [formSubmitted, setFormSubmitted] = useState(false)
+  const normalizedSearch = asLowerText(search)
   const filteredSupporters = supporters.data.filter((supporter) => {
     const matchesSearch =
-      (supporter.displayName ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (supporter.supporterType ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      (supporter.region ?? '').toLowerCase().includes(search.toLowerCase())
+      asLowerText(supporter.displayName).includes(normalizedSearch) ||
+      asLowerText(supporter.supporterType).includes(normalizedSearch) ||
+      asLowerText(supporter.region).includes(normalizedSearch)
     const matchesStatus = statusFilter === 'All' || supporter.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -2336,15 +2395,16 @@ function ContributionsPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [formSubmitted, setFormSubmitted] = useState(false)
-  const campaignOptions = Array.from(new Set(donations.data.map((donation) => donation.campaignName)))
+  const campaignOptions = Array.from(new Set(donations.data.map((donation) => asText(donation?.campaignName).trim()))).filter(Boolean)
+  const normalizedSearch = asLowerText(search)
   const filteredDonations = donations.data.filter((donation) => {
     const matchesCampaign =
-      campaignFilter === 'All campaigns' || donation.campaignName === campaignFilter
-    const q = search.toLowerCase()
+      campaignFilter === 'All campaigns' || asText(donation?.campaignName).trim() === campaignFilter
+    const q = normalizedSearch
     const matchesSearch =
-      (donation.campaignName ?? '').toLowerCase().includes(q) ||
-      (donation.channelSource ?? '').toLowerCase().includes(q) ||
-      (donation.donationType ?? '').toLowerCase().includes(q)
+      asLowerText(donation?.campaignName).includes(q) ||
+      asLowerText(donation?.channelSource).includes(q) ||
+      asLowerText(donation?.donationType).includes(q)
     return matchesCampaign && matchesSearch
   })
 
@@ -2424,7 +2484,7 @@ function ContributionsPage() {
             donation.donationDate,
             donation.campaignName,
             donation.donationType,
-            `$${donation.amount.toLocaleString()}`,
+            formatAmount(donation.amount),
             <AppLink to={`/app/admin/contributions/${donation.donationId}`}>Open detail</AppLink>,
           ])}
         />
@@ -2472,7 +2532,7 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
     >
       <div className="stat-grid">
         <StatCard label="Campaign" value={donation.campaignName} />
-        <StatCard label="Amount" value={`$${donation.amount.toLocaleString()}`} />
+        <StatCard label="Amount" value={formatAmount(donation.amount)} />
         <StatCard label="Impact unit" value={donation.impactUnit} />
       </div>
       <div className="two-column-grid">
@@ -2486,7 +2546,7 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
               rows={allocations.data.map((allocation) => [
                 allocation.programArea,
                 safehouses.data.find((sh) => sh.safehouseId === allocation.safehouseId)?.name ?? `Safehouse ${allocation.safehouseId}`,
-                `$${allocation.amountAllocated.toLocaleString()}`,
+                formatAmount(allocation.amountAllocated),
                 allocation.allocationDate,
               ])}
             />
@@ -2704,7 +2764,7 @@ function ReportsPage() {
       ) : (
       <>
       <div className="stat-grid">
-        <StatCard label="Total donations" value={`$${donations.data.reduce((s, d) => s + d.amount, 0).toLocaleString()}`} />
+        <StatCard label="Total donations" value={formatAmount(donations.data.reduce((s, d) => s + asFiniteNumber(d.amount), 0))} />
         <StatCard label="Total donors" value={String(new Set(donations.data.map((d) => d.supporterId)).size)} />
         <StatCard label="Active residents" value={String(residents.data.filter((r) => r.caseStatus === 'Active').length)} />
         <StatCard label="Published snapshots" value={String(impactSnapshots.data.length)} />
@@ -2715,7 +2775,7 @@ function ReportsPage() {
         donationTrends.data.length === 0 ? <EmptyState title="No trend data" description="Donation trend data will appear once the API provides it." /> : (
         <DataTable
           columns={['Month', 'Total donated', 'Unique donors']}
-          rows={donationTrends.data.map((row) => [row.month, `$${row.amount.toLocaleString()}`, String(row.donors)])}
+          rows={donationTrends.data.map((row) => [asText(row.month), formatAmount(row.amount), String(asFiniteNumber(row.donors))])}
         />
         )}
       </Surface>
