@@ -76,3 +76,8 @@ Use a Postgres user with **least privilege** required for the app (not superuser
 ## Logging
 
 Log authentication failures and authorization denials at appropriate levels; **never** log passwords, refresh tokens, or full JWTs.
+
+## Operational references
+
+- Endpoint authorization matrix: `backend/docs/authorization-endpoint-matrix.md`
+- Manual security regression checklist: `backend/docs/security-regression-checklist.md`
