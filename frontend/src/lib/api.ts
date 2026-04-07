@@ -37,41 +37,81 @@ export function getApiBaseUrl() {
   return resolveApiBaseUrl()
 }
 
-export async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-    },
-  })
+function asErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message
+  }
+  return 'Request failed.'
+}
 
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`)
+function toFriendlyNetworkError(path: string, error: unknown): Error {
+  const original = asErrorMessage(error)
+  return new Error(
+    `Could not reach the API for ${path}. Verify API URL, CORS, and cookie settings. (${original})`,
+  )
+}
+
+async function parseJsonBody<T>(response: Response): Promise<T> {
+  const text = await response.text()
+  if (!text) {
+    return undefined as T
+  }
+  return JSON.parse(text) as T
+}
+
+function statusFallbackMessage(status: number): string {
+  if (status === 401) return 'Not authenticated. Sign in again and retry.'
+  if (status === 403) return 'Access denied for this action.'
+  return `Request failed with status ${status}`
+}
+
+export async function fetchJson<T>(path: string): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      credentials: 'include',
+      mode: 'cors',
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+  } catch (error) {
+    throw toFriendlyNetworkError(path, error)
   }
 
-  return (await response.json()) as T
+  if (!response.ok) {
+    throw new Error(statusFallbackMessage(response.status))
+  }
+
+  return parseJsonBody<T>(response)
 }
 
 /** Authenticated JSON request (POST / PUT / DELETE). */
 export async function sendJson<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    method,
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  let response: Response
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method,
+      credentials: 'include',
+      mode: 'cors',
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+  } catch (error) {
+    throw toFriendlyNetworkError(path, error)
+  }
 
   if (response.status === 204) {
     return undefined as T
   }
 
   if (!response.ok) {
-    let message = `Request failed with status ${response.status}`
+    let message = statusFallbackMessage(response.status)
     try {
-      const parsed = (await response.json()) as { error?: string }
+      const parsed = (await parseJsonBody<{ error?: string }>(response)) ?? {}
       if (parsed.error) {
         message = parsed.error
       }
@@ -81,11 +121,7 @@ export async function sendJson<T>(path: string, method: string, body?: unknown):
     throw new Error(message)
   }
 
-  const text = await response.text()
-  if (!text) {
-    return undefined as T
-  }
-  return JSON.parse(text) as T
+  return parseJsonBody<T>(response)
 }
 
 const IMPACT_CACHE_PREFIX = '/public/impact'
