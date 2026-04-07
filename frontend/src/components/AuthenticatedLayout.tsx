@@ -19,9 +19,17 @@ export function AuthenticatedLayout({
 }) {
   const navGroups = getNavGroups(user.role)
   const breadcrumbs = getBreadcrumbs(window.location.pathname)
+  const portal =
+    user.role === 'donor'
+      ? 'donor'
+      : user.role === 'admin'
+        ? 'admin'
+        : user.role === 'super-admin'
+          ? 'super-admin'
+          : 'account'
 
   return (
-    <div className="app-frame app-shell">
+    <div className="app-frame app-shell" data-portal={portal}>
       <aside className={`app-sidebar ${mobileNavOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
           <img src={siteImages.logo} alt="" className="brand-logo-img brand-logo-img--sm" width={36} height={36} />

@@ -1,0 +1,87 @@
+# Becon Design Specification: The Human Laboratory
+
+## 1. Design Ethos: "Terra & Tide"
+The visual language for Becon is defined by the **Terra & Tide** design system. It rejects the "sterile tech" aesthetic in favor of a "Humane Laboratory" approach—professional and data-capable, yet warm, trustworthy, and mission-driven.
+
+- **Primary Brand Color:** Deep Teal (#1E5F64)
+- **Secondary/Accents:** Soft Sage Green, Sandstone Neutrals, Earthy Ochre.
+- **Typography:** Manrope (Clean, modern sans-serif with strong hierarchy).
+- **Shape Language:** 8px corner radius (Round Eight) for cards and inputs to feel approachable but structured.
+- **Elevation:** Flat design with very subtle tonal shifts (#f6f4ec backgrounds) and minimal, soft shadows for depth.
+
+---
+
+## 2. Core Layout Architecture (Global App Shell)
+All portals share a consistent structural foundation to minimize cognitive load while allowing for role-specific density.
+
+### Left Sidebar Navigation
+- **Header:** Organization logo (Becon) and portal subtitle (e.g., "Donor Portal").
+- **Links:** Iconic navigation with clear labels. Active states use a solid brand-color indicator.
+- **Footer:** Support, Settings, and Log Out actions.
+
+### Top Navigation Bar
+- **Search:** Centrally or left-aligned contextual search.
+- **Actions:** Notification bell, help/documentation icon.
+- **User Identity:** Profile avatar with role context (e.g., "Curator Access", "Super Admin").
+
+### Main Content Canvas
+- **Page Header:** Large H1 Title + brief descriptive subtext explaining the page's purpose.
+- **KPI Strip:** 3-4 high-level metric cards for immediate context.
+- **Visual Grid:** Cards containing charts, tables, or feed items.
+
+---
+
+## 3. Portal-Specific Design Patterns
+
+### A. Donor Portal (Warm & Editorial)
+- **Tone:** Reassuring, personal, storytelling-oriented.
+- **Density:** Low density, generous whitespace.
+- **Unique Features:**
+  - **Impact Storytelling:** Visual cards connecting dollars to outcomes.
+  - **Selective Analytics:** Simple line and donut charts showing personal giving trends.
+  - **Soft ML:** "Recommended for you" campaign suggestions based on history.
+
+### B. Admin Portal (Operational & Efficient)
+- **Tone:** Focused, structured, triage-capable.
+- **Density:** Medium-high density for scanning and action.
+- **Unique Features:**
+  - **Caseload Workbench:** Complex tables with risk/readiness signals.
+  - **Resident 360:** Deep longitudinal views with timeline components.
+  - **Decision-Support AI:** Integrated risk alerts and "Recommended Next Step" cards.
+
+### C. Super Admin Portal (Strategic & Authoritative)
+- **Tone:** Strategic, compact, high-trust.
+- **Density:** High density, executive summary style.
+- **Unique Features:**
+  - **Governance Matrices:** Complex role-based access control (RBAC) tables.
+  - **ML Control Center:** Technical model monitoring (drift, health, feature importance).
+  - **Audit Trails:** Specialized logs for tracking sensitive system-wide actions.
+
+---
+
+## 4. Reusable Component Library
+
+### KPI Cards
+- **Values:** Large numeric display with trend percentage (e.g., +12% from last month).
+- **Visuals:** Subtle background icons or tiny sparklines.
+
+### AI/ML Prediction Modules
+- **Visual Signature:** Teal/Sage gradient headers or special "AI Assistant" icons.
+- **Required Elements:** Prediction statement, confidence percentage, top 3 "Reasons why," and a primary CTA (Action).
+
+### Data Tables
+- **Treatment:** Clean rows with no borders; boundaries defined by subtle background color shifts.
+- **Interactions:** Row expansion for detail views; action menus for quick edits.
+
+### Charts & Visualizations
+- **Palette:** Custom "Terra & Tide" hues (Teals, Sages, Neutrals).
+- **Styles:** Donut (allocation), Line (trends), Stacked Bar (comparison), Heatmap (activity/posting times).
+
+---
+
+## 5. Implementation Guidance for AI
+When generating new screens or features for Becon:
+1. **Always reference the Terra & Tide DESIGN.md.**
+2. **Prioritize the "Next Action":** Every screen must answer "What is the most important thing here?" and "What do I do next?".
+3. **Contextual AI:** Never hide AI insights in a separate menu; place them where they impact the user's decision (e.g., the Resident Detail page for a caseworker).
+4. **Emotional Resonance:** Use "Editorial" headers for Donors and "Operational" headers for Admins.
