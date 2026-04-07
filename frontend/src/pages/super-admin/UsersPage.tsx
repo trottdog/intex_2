@@ -22,6 +22,42 @@ type SuccessFeedback = {
   message: string
 }
 
+function sameNumberLists(left: number[] | undefined, right: number[]) {
+  const normalizedLeft = [...(left ?? [])].sort((a, b) => a - b)
+  const normalizedRight = [...right].sort((a, b) => a - b)
+
+  if (normalizedLeft.length !== normalizedRight.length) {
+    return false
+  }
+
+  return normalizedLeft.every((value, index) => value === normalizedRight[index])
+}
+
+function editWasApplied(
+  user: UserRecord,
+  originalUser: UserRecord,
+  expected: {
+    fullName: string
+    role: (typeof roleApiValues)[number]
+    status: 'active' | 'locked'
+    safehouseIds: number[]
+  },
+) {
+  const expectedName = expected.fullName.trim() || asText(originalUser.email, originalUser.name).trim()
+  const actualName = asText(user.name, '').trim()
+  const actualRole = asText(user.role, '').trim()
+  const actualStatus = asLowerText(user.status)
+  const actualSafehouseIds = user.safehouseIds ?? []
+
+  return (
+    user.id === originalUser.id &&
+    actualName === expectedName &&
+    actualRole === expected.role &&
+    (expected.status === 'locked' ? actualStatus === 'locked' : actualStatus !== 'locked') &&
+    sameNumberLists(actualSafehouseIds, expected.role === 'Admin' ? expected.safehouseIds : [])
+  )
+}
+
 const feedbackStyles: Record<SuccessFeedback['kind'], { color: string; backgroundColor: string; borderColor: string }> = {
   create: {
     color: '#1b5e20',
@@ -69,6 +105,7 @@ export function UsersPage() {
   const [facilityFilter, setFacilityFilter] = useState('All')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [formSuccess, setFormSuccess] = useState<SuccessFeedback | null>(null)
@@ -168,6 +205,7 @@ export function UsersPage() {
   }
 
   function startEdit(user: UserRecord) {
+    setEditingUser(user)
     setEditingId(user.id)
     setEditName(user.name)
     setEditRole(
@@ -182,22 +220,55 @@ export function UsersPage() {
   }
 
   async function submitEdit() {
-    if (!editingId) return
+    if (!editingId || !editingUser) return
     setFormError(null)
     setBusy(true)
     try {
       const fullName = editName.trim()
+      const safehouseIds = editRole === 'Admin' ? editSafehouses : []
+
       await sendJson<UserRecord>(`/admin/users/${editingId}`, 'PUT', {
         fullName,
         role: editRole,
         status: editStatus,
-        safehouseIds: editRole === 'Admin' ? editSafehouses : [],
+        safehouseIds,
       })
       setEditingId(null)
+      setEditingUser(null)
       setFormSuccess({ kind: 'edit', message: `User updated successfully${fullName ? `: ${fullName}` : '.'}` })
       users.reload()
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Could not update user')
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : ''
+
+      if (message.includes('failed to fetch')) {
+        try {
+          const latestUsers = await fetchJson<UserRecord[]>('/admin/users')
+          const updatedUser = latestUsers.find((user) => user.id === editingUser.id)
+
+          if (
+            updatedUser &&
+            editWasApplied(updatedUser, editingUser, {
+              fullName,
+              role: editRole,
+              status: editStatus,
+              safehouseIds,
+            })
+          ) {
+            setEditingId(null)
+            setEditingUser(null)
+            setFormSuccess({ kind: 'edit', message: `User updated successfully${fullName ? `: ${fullName}` : '.'}` })
+            users.reload()
+            return
+          }
+        } catch {
+          /* fall through to a clear update error below */
+        }
+
+        setFormError('Could not update user. Please try again.')
+        return
+      }
+
+      setFormError(error instanceof Error ? error.message : 'Could not update user')
     } finally {
       setBusy(false)
     }
@@ -210,6 +281,7 @@ export function UsersPage() {
     try {
       await sendJson(`/admin/users/${id}`, 'DELETE', undefined)
       setEditingId(null)
+      setEditingUser(null)
       setFormSuccess({ kind: 'delete', message: 'User deleted successfully.' })
       users.reload()
     } catch (e) {
@@ -354,6 +426,7 @@ export function UsersPage() {
               className="secondary-button"
               onClick={() => {
                 setEditingId(null)
+                setEditingUser(null)
                 setFormError(null)
               }}
             >
