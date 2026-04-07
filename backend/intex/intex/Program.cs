@@ -180,7 +180,8 @@ app.UseCors(x => x
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:3000",
-        "https://beacon.trottdog.com")
+        "https://beacon.trottdog.com",
+        "https://www.beacon.trottdog.com")
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials());

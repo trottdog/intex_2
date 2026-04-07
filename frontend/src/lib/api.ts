@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
-const DEFAULT_API_BASE = 'http://localhost:4000'
-
-/** In dev, when VITE_API_BASE_URL is unset, use the Vite proxy (see vite.config.ts). */
+/**
+ * In production, VITE_API_BASE_URL must be set at build time (see `frontend/.env.production`).
+ * Browsers block HTTPS pages (e.g. beacon.trottdog.com) from calling http://localhost — not a CORS header fix.
+ */
 function resolveApiBaseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim()
 
@@ -14,7 +15,15 @@ function resolveApiBaseUrl(): string {
     return '/api'
   }
 
-  return DEFAULT_API_BASE
+  // Production without VITE_API_BASE_URL would default to localhost and break on HTTPS deploys
+  // (browser blocks public sites from Private Network Access / loopback — not fixable with CORS).
+  if (import.meta.env.PROD) {
+    throw new Error(
+      'VITE_API_BASE_URL must be set for production builds (see frontend/.env.production or CI env).',
+    )
+  }
+
+  return 'http://localhost:4000'
 }
 
 type ResourceState<T> = {

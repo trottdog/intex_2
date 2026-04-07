@@ -70,6 +70,12 @@ Open **http://localhost:5173**. In development, API calls go to **`/api/...`** a
 
 To switch back to a **local** API, delete or edit **`frontend/.env.development.local`** (remove `VITE_API_BASE_URL`, or set it to `http://localhost:4000`).
 
+**Production static site (e.g. https://beacon.trottdog.com)**
+
+- If the live site calls **`http://localhost:4000`**, the browser will block it with **Private Network Access** / “loopback” errors. That is not fixed by CORS headers on the API; the **production bundle must use your public API URL**.
+- **`frontend/.env.production`** (committed) sets `VITE_API_BASE_URL` to the Azure API. After changing it, run **`npm run build`** and redeploy the static site.
+- **`Program.cs`** must list your frontend origin with **`AllowCredentials`** (e.g. `https://beacon.trottdog.com` and `https://www.beacon.trottdog.com`). Redeploy the API after CORS changes.
+
 **Frontend auth (aligned with `RULES.md`):**
 
 - Session: `frontend/src/app/session.tsx` — calls `GET /auth/me` with credentials; maps Identity roles (`SuperAdmin`, `Admin`, `Donor`) to UI roles **case-insensitively**.
