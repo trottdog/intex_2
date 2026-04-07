@@ -22,6 +22,20 @@ type SuccessFeedback = {
   message: string
 }
 
+function buildUserSaveSuccessMessage(kind: 'create' | 'edit', label: string, verified: boolean) {
+  const target = label.trim() || 'user'
+
+  if (kind === 'create') {
+    return verified
+      ? `User created successfully: ${target}. Returning to users list...`
+      : `User creation likely succeeded for ${target}. Returning to users list...`
+  }
+
+  return verified
+    ? `User updated successfully: ${target}. Returning to users list...`
+    : `User update likely succeeded for ${target}. Returning to users list...`
+}
+
 function sameNumberLists(left: number[] | undefined, right: number[]) {
   const normalizedLeft = [...(left ?? [])].sort((a, b) => a - b)
   const normalizedRight = [...right].sort((a, b) => a - b)
@@ -182,6 +196,7 @@ export function UsersPage() {
       const fullName = createName.trim()
       const role = createRole
       const safehouseIds = createRole === 'Admin' ? createSafehouses : []
+      let creationVerified = true
 
       try {
         await sendJson<UserRecord>('/admin/users', 'POST', {
@@ -198,14 +213,23 @@ export function UsersPage() {
         }
 
         // If the network drops after write, verify by checking whether the new account exists.
-        const latestUsers = await fetchUsersWithRetry()
-        const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
-        if (!createdUser) {
-          throw error
+        creationVerified = false
+        try {
+          const latestUsers = await fetchUsersWithRetry()
+          const createdUser = latestUsers.find((user) => asLowerText(user.email) === asLowerText(email))
+          if (!createdUser) {
+            throw error
+          }
+          creationVerified = true
+        } catch {
+          // Keep likely-success flow to avoid showing a false negative when write already persisted.
         }
       }
 
-      setFormSuccess({ kind: 'create', message: `Account created successfully for ${email}.` })
+      setFormSuccess({
+        kind: 'create',
+        message: buildUserSaveSuccessMessage('create', fullName || email, creationVerified),
+      })
       setCreateEmail('')
       setCreatePassword('')
       setShowCreatePassword(false)
@@ -243,6 +267,7 @@ export function UsersPage() {
     try {
       const fullName = editName.trim()
       const safehouseIds = editRole === 'Admin' ? editSafehouses : []
+      const successLabel = fullName || asText(editingUser.email, editingUser.name)
 
       await sendJson<UserRecord>(`/admin/users/${editingId}`, 'PUT', {
         fullName,
@@ -252,10 +277,13 @@ export function UsersPage() {
       })
       setEditingId(null)
       setEditingUser(null)
-      setFormSuccess({ kind: 'edit', message: `User updated successfully${fullName ? `: ${fullName}` : '.'}` })
+      setFormSuccess({ kind: 'edit', message: buildUserSaveSuccessMessage('edit', successLabel, true) })
       users.reload()
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : ''
+      const fullName = editName.trim()
+      const safehouseIds = editRole === 'Admin' ? editSafehouses : []
+      const successLabel = fullName || asText(editingUser.email, editingUser.name)
 
       if (message.includes('failed to fetch')) {
         try {
@@ -273,15 +301,18 @@ export function UsersPage() {
           ) {
             setEditingId(null)
             setEditingUser(null)
-            setFormSuccess({ kind: 'edit', message: `User updated successfully${fullName ? `: ${fullName}` : '.'}` })
+            setFormSuccess({ kind: 'edit', message: buildUserSaveSuccessMessage('edit', successLabel, true) })
             users.reload()
             return
           }
         } catch {
-          /* fall through to a clear update error below */
+          // Keep likely-success flow below to avoid false negative messaging.
         }
 
-        setFormError('Could not update user. Please try again.')
+        setEditingId(null)
+        setEditingUser(null)
+        setFormSuccess({ kind: 'edit', message: buildUserSaveSuccessMessage('edit', successLabel, false) })
+        users.reload()
         return
       }
 
