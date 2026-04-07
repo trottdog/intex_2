@@ -28,6 +28,20 @@ PREDICTIVE_PIPELINES: dict[str, dict[str, object]] = {
             "ranked_table_widget",
         ],
     },
+    "capacity_pressure": {
+        "display_name": "Capacity Pressure",
+        "slug": "capacity-pressure",
+        "train_module": "ml.src.pipelines.capacity_pressure.train_predictive",
+        "build_module": "ml.src.pipelines.capacity_pressure.build_dataset",
+        "id_columns": ["safehouse_id"],
+        "shared_dataset": "safehouse_monthly_features",
+        "business_question": "Which safehouses are most likely to be near or above practical capacity next month?",
+        "recommended_widgets": [
+            "risk_badge_widget",
+            "insight_summary_card",
+            "recommendation_panel",
+        ],
+    },
     "case_prioritization": {
         "display_name": "Case Prioritization",
         "slug": "case-prioritization",
@@ -154,6 +168,20 @@ PREDICTIVE_PIPELINES: dict[str, dict[str, object]] = {
             "recommendation_panel",
         ],
     },
+    "resource_demand": {
+        "display_name": "Resource Demand",
+        "slug": "resource-demand",
+        "train_module": "ml.src.pipelines.resource_demand.train_predictive",
+        "build_module": "ml.src.pipelines.resource_demand.build_dataset",
+        "id_columns": ["safehouse_id"],
+        "shared_dataset": "safehouse_monthly_features",
+        "business_question": "How many active residents are likely to need support at each safehouse next month?",
+        "recommended_widgets": [
+            "forecast_widget",
+            "insight_summary_card",
+            "ranked_table_widget",
+        ],
+    },
     "social_media_conversion": {
         "display_name": "Social Media Conversion",
         "slug": "social-media-conversion",
@@ -184,6 +212,21 @@ NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
         "deployment_notes": [
             "Use a recommendation panel that highlights the strongest posting windows by platform.",
             "Show ranked time slots alongside a short evidence summary rather than a raw probability alone.",
+        ],
+    },
+    "capacity_pressure": {
+        "display_name": "Capacity Pressure",
+        "slug": "capacity-pressure",
+        "predictive_impl": "capacity_pressure",
+        "dataset_name": "safehouse_monthly_features",
+        "predictive_question": "Which safehouses are most likely to be under capacity strain next month?",
+        "explanatory_question": "Which occupancy and service patterns most explain near-term capacity pressure?",
+        "decision_support": "Help operations leadership intervene early when a site is likely to approach or exceed practical capacity.",
+        "primary_users": ["operations leadership", "program leadership"],
+        "target_summary": "Current predictive label: `label_capacity_pressure_next_month`, using safehouse-month occupancy and service patterns to flag next-month near-capacity risk.",
+        "deployment_notes": [
+            "Use risk badges on safehouse dashboards and a recommendation panel for sites that may need relief.",
+            "Pair the risk flag with the latest occupancy context so leaders can see whether the pressure signal is persistent or worsening.",
         ],
     },
     "case_prioritization": {
@@ -256,6 +299,26 @@ NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
             "Frame the result as channel guidance, not as an individual donor prediction.",
         ],
     },
+    "donation_allocation_impact": {
+        "display_name": "Donation Allocation Impact",
+        "slug": "donation-allocation-impact",
+        "predictive_impl": None,
+        "dataset_name": "safehouse_monthly_features",
+        "predictive_question": "Which allocation patterns appear most associated with stronger safehouse outcomes over time?",
+        "explanatory_question": "Which program-area allocations seem to align with better education, health, or stability outcomes?",
+        "decision_support": "Help leadership connect allocated donor funds to the strongest operational outcome patterns.",
+        "primary_users": ["fundraising leadership", "program leadership"],
+        "target_summary": "Explanation-first track using safehouse-month allocations and outcomes rather than a causal or supervised label.",
+        "recommended_widgets": [
+            "explanation_chart_card",
+            "insight_summary_card",
+            "recommendation_panel",
+        ],
+        "deployment_notes": [
+            "Use comparative charts that connect program-area funding patterns to later safehouse outcomes.",
+            "Keep this notebook explicitly non-causal and frame it as evidence to guide donor storytelling and internal planning.",
+        ],
+    },
     "donor_upgrade": {
         "display_name": "Donor Upgrade",
         "slug": "donor-upgrade",
@@ -269,6 +332,26 @@ NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
         "deployment_notes": [
             "Use ranked donor lists in fundraiser planning views and donor profile cards.",
             "Pair the upgrade score with a recommendation panel describing why the donor is a strong ask candidate.",
+        ],
+    },
+    "donor_to_impact_personalization": {
+        "display_name": "Donor-To-Impact Personalization",
+        "slug": "donor-to-impact-personalization",
+        "predictive_impl": None,
+        "dataset_name": "supporter_features",
+        "predictive_question": "What safehouses, program areas, or impact stories should be highlighted for each donor?",
+        "explanatory_question": "Which donor history patterns can guide more personalized impact storytelling and outreach?",
+        "decision_support": "Document the personalization concept and the data needed to move from donor segments to individualized impact recommendations.",
+        "primary_users": ["fundraisers", "donor engagement leads"],
+        "target_summary": "Notebook-only track: the current data supports donor affinity exploration, but it does not yet include explicit feedback labels for personalized impact recommendations.",
+        "recommended_widgets": [
+            "recommendation_panel",
+            "insight_summary_card",
+            "ranked_table_widget",
+        ],
+        "deployment_notes": [
+            "Use the notebook to define donor affinity segments and the additional feedback loops needed for a future recommendation model.",
+            "Keep any app output heuristic and transparent until the team captures recommendation outcomes or interaction feedback.",
         ],
     },
     "education_improvement": {
@@ -394,6 +477,41 @@ NOTEBOOK_PIPELINES: dict[str, dict[str, object]] = {
         "deployment_notes": [
             "Show an expected-gift card on donor detail pages and fundraiser planning tables.",
             "Pair the amount estimate with an explanation summary so staff understand the main drivers.",
+        ],
+    },
+    "public_impact_forecasting": {
+        "display_name": "Public Impact Forecasting",
+        "slug": "public-impact-forecasting",
+        "predictive_impl": None,
+        "dataset_name": "public_impact_features",
+        "predictive_question": "What public-facing impact metrics are likely next period?",
+        "explanatory_question": "How are public impact metrics trending, and what would a credible forecast need from the current data?",
+        "decision_support": "Give leadership a trend-and-forecast notebook while the current public-impact history remains too small for a strong production model.",
+        "primary_users": ["executive leadership", "communications staff"],
+        "target_summary": "Notebook-only track: `public_impact_features` now parses the reporting series, but the historical sample is still too small and unstable for a strong production forecast.",
+        "recommended_widgets": [
+            "forecast_widget",
+            "insight_summary_card",
+            "explanation_chart_card",
+        ],
+        "deployment_notes": [
+            "Use the notebook to show trend lines, simple benchmark forecasts, and the caveats behind them.",
+            "Keep this exploratory until the team accumulates enough monthly history for a more defensible forecasting model.",
+        ],
+    },
+    "resource_demand": {
+        "display_name": "Resource Demand",
+        "slug": "resource-demand",
+        "predictive_impl": "resource_demand",
+        "dataset_name": "safehouse_monthly_features",
+        "predictive_question": "How many active residents are likely to need support at each safehouse next month?",
+        "explanatory_question": "Which safehouse patterns most explain rising or falling near-term demand?",
+        "decision_support": "Support staffing and fundraising planning with a forecast of near-term resident demand by site.",
+        "primary_users": ["operations leadership", "fundraising leadership"],
+        "target_summary": "Current regression target: `label_next_active_residents`, forecasting next-month resident load from safehouse-month patterns.",
+        "deployment_notes": [
+            "Use a forecast widget and ranked planning table in monthly operations reviews.",
+            "Pair the forecast with recent occupancy context so leaders can see whether the demand signal reflects a sustained load or a temporary shift.",
         ],
     },
     "recurring_donor_conversion": {

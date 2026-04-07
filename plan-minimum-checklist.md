@@ -33,13 +33,13 @@ Status summary from repo evidence:
 
 - `[x]` Completed and strongly evidenced in repo: core architecture, major public/admin/donor/super-admin pages, role model, seeded admin/donor identities, authz runtime tests, donor-retention ML pipeline artifacts, and ML API endpoints
 - `[~]` Partially evidenced / risky: deployment readiness vs actual deployment, privacy wording quality, ML UI surfacing (API exists; UI proof unclear), database persistence in live cloud, grading credentials with historical donor activity
-- `[ ]` Missing/unverified from repo: MFA-enabled account, CSP response header, HSTS, recorded public videos/links, final submission link verification, most IS 401 process artifacts (sprint screenshots, burndown proofs, design prompt logs)
+- `[ ]` Missing/unverified from repo: MFA-enabled account, HSTS, recorded public videos/links, final submission link verification, most IS 401 process artifacts (sprint screenshots, burndown proofs, design prompt logs)
 
 Top blockers before declaring "ready":
 
 1. No repo-proof that deployed site and deployed DB are reachable and functioning end-to-end.
 2. MFA account requirement is not implemented/verified.
-3. CSP-as-header and HSTS are not evidenced in backend middleware config.
+3. HSTS is not evidenced in backend middleware config.
 4. Required video/link verification artifacts are not present in repo.
 
 Primary evidence locations used for this snapshot:
@@ -362,10 +362,10 @@ Do not call the project "ready" unless every item below is true.
 
 ## 4.8 Attack Mitigations
 
-- [ ] Content-Security-Policy is sent as an HTTP header, not just a meta tag
+- [x] Content-Security-Policy is sent as an HTTP header, not just a meta tag
 - [ ] CSP is visible in browser dev tools
-- [ ] CSP is restricted to only needed sources
-- [ ] Team can explain allowed sources
+- [~] CSP is restricted to only needed sources
+- [~] Team can explain allowed sources
 - [ ] Data sanitization or output encoding is used to reduce injection risk
 
 ## 4.9 Availability
@@ -629,7 +629,7 @@ Mark each as cleared before submission.
 - [ ] "Login works for one person only"
 - [ ] "Role restrictions only exist in UI, not API"
 - [ ] "Cookie consent is present but team cannot explain if it is functional"
-- [ ] "CSP is in a meta tag instead of response header"
+- [x] "CSP is in a meta tag instead of response header"
 - [ ] "Notebook runs only on one machine"
 - [ ] "ML result exists in notebook but not in app"
 - [ ] "Credentials are wrong or missing"

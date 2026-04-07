@@ -27,7 +27,11 @@ from ml.src.data.loaders import describe_raw_source, load_raw_tables, resolve_ra
 from ml.src.features.common_features import build_feature_catalog, latest_record_per_group, save_dataset
 from ml.src.features.donor_features import build_campaign_features, build_supporter_features
 from ml.src.features.resident_features import build_resident_features, build_resident_monthly_features
-from ml.src.features.safehouse_features import build_safehouse_features
+from ml.src.features.safehouse_features import (
+    build_public_impact_features,
+    build_safehouse_features,
+    build_safehouse_monthly_features,
+)
 from ml.src.features.social_features import build_post_features
 from ml.src.inference.predict import predict_dataframe
 from ml.src.inference.serializers import (
@@ -121,6 +125,8 @@ def rebuild_phase2_datasets(raw_tables: dict[str, pd.DataFrame]) -> dict[str, pd
         "resident_features": build_resident_features(raw_tables),
         "resident_monthly_features": build_resident_monthly_features(raw_tables),
         "safehouse_features": build_safehouse_features(raw_tables),
+        "safehouse_monthly_features": build_safehouse_monthly_features(raw_tables),
+        "public_impact_features": build_public_impact_features(raw_tables),
     }
 
     for dataset_name, df in datasets.items():
@@ -197,6 +203,11 @@ def current_scoring_frame(
         current["snapshot_month"] = pd.to_datetime(current["snapshot_month"], errors="coerce")
         current = current.loc[~current["case_closed_as_of_snapshot"].fillna(False)]
         current = latest_record_per_group(current, "resident_id", "snapshot_month")
+        return current
+
+    if pipeline_name in {"capacity_pressure", "resource_demand"}:
+        current["month_start"] = pd.to_datetime(current["month_start"], errors="coerce")
+        current = latest_record_per_group(current, "safehouse_id", "month_start")
         return current
 
     if pipeline_name == "donor_retention":

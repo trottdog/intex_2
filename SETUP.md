@@ -117,8 +117,8 @@ Passwords must match **how users were created**: SQL hashes vs. `dotnet user-sec
 
 | Field    | Value                                |
 |----------|--------------------------------------|
-| Email    | `julie.hernando@lighthouse.intex`    |
-| Password | `LighthouseAdmin01`                  |
+| Email    | `admin@admin.com`    |
+| Password | `123456789012Qw`                  |
 | Role     | SuperAdmin                           |
 
 ### Staff / Admin (2 per safehouse, up to 9 safehouses)

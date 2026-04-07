@@ -87,6 +87,14 @@ Run the resident expansion pass, including the refreshed resident-month snapshot
 py -3 ml/scripts/run_phase_d_resident_expansion.py
 ```
 
+## Phase E Command
+
+Run the strategic and leadership expansion pass, including the shared safehouse-month table, the parsed public-impact series, the new Phase E predictive pipelines, and regenerated notebook deliverables:
+
+```powershell
+py -3 ml/scripts/run_phase_e_strategic_expansion.py
+```
+
 ## Phase 6 Command
 
 Run the full nightly-style ML refresh locally without writing back to Supabase:
