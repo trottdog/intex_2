@@ -83,30 +83,50 @@ function compareDateDesc(a: unknown, b: unknown): number {
   return asText(b).localeCompare(asText(a))
 }
 
-type AppErrorBoundaryState = { hasError: boolean }
+type AppErrorBoundaryState = { hasError: boolean; error: Error | null }
 
-class AppErrorBoundary extends Component<{ children: ReactNode }, AppErrorBoundaryState> {
-  state: AppErrorBoundaryState = { hasError: false }
+class AppErrorBoundary extends Component<{ children: ReactNode; fallback?: 'page' | 'section' }, AppErrorBoundaryState> {
+  state: AppErrorBoundaryState = { hasError: false, error: null }
 
-  static getDerivedStateFromError() {
-    return { hasError: true }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Unhandled frontend render error', error, info)
   }
 
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null })
+  }
+
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback === 'section') {
+        return (
+          <div className="error-crash-section">
+            <div className="error-crash-icon">!</div>
+            <h3>Something went wrong</h3>
+            <p>This section hit an error and could not render.</p>
+            {this.state.error ? <pre className="error-crash-detail">{this.state.error.message}</pre> : null}
+            <button className="primary-button" onClick={this.handleRetry}>Try again</button>
+          </div>
+        )
+      }
+
       return (
-        <main className="page-shell">
-          <section className="page-section">
-            <ErrorState
-              title="This page hit an unexpected error"
-              description="Refresh and try again. If it keeps happening, please report the page URL and your recent action."
-            />
-          </section>
-        </main>
+        <div className="error-crash-page">
+          <div className="error-crash-card">
+            <div className="error-crash-icon">!</div>
+            <h1>Something went wrong</h1>
+            <p>The page hit an unexpected error. This is usually temporary.</p>
+            {this.state.error ? <pre className="error-crash-detail">{this.state.error.message}</pre> : null}
+            <div className="error-crash-actions">
+              <button className="primary-button" onClick={this.handleRetry}>Try again</button>
+              <button className="secondary-button" onClick={() => { window.location.href = '/' }}>Go to home</button>
+            </div>
+          </div>
+        </div>
       )
     }
     return this.props.children
@@ -264,7 +284,9 @@ function IntexApp() {
   if (shell.kind === 'public') {
     return (
       <PublicLayout mobileNavOpen={mobileNavOpen} setMobileNavOpen={setMobileNavOpen}>
-        {shell.render()}
+        <AppErrorBoundary fallback="section" key={pathname}>
+          {shell.render()}
+        </AppErrorBoundary>
       </PublicLayout>
     )
   }
@@ -280,7 +302,9 @@ function IntexApp() {
       setMobileNavOpen={setMobileNavOpen}
       signOut={signOut}
     >
-      {shell.render()}
+      <AppErrorBoundary fallback="section" key={pathname}>
+        {shell.render()}
+      </AppErrorBoundary>
     </AuthenticatedLayout>
   )
 }

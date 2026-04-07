@@ -1303,6 +1303,92 @@ p {
   border-color: rgba(179, 79, 79, 0.26);
 }
 
+.error-crash-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: var(--bg);
+}
+
+.error-crash-card {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 3rem 2.5rem;
+}
+
+.error-crash-card h1 {
+  font-size: 1.5rem;
+  color: var(--brand-deep);
+  margin: 1rem 0 0.5rem;
+}
+
+.error-crash-card p {
+  color: var(--text-soft);
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.error-crash-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(179, 79, 79, 0.12);
+  color: #b34f4f;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.error-crash-detail {
+  background: rgba(0,0,0,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+  margin: 0 0 1.5rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.error-crash-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.error-crash-section {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.error-crash-section h3 {
+  color: var(--brand-deep);
+  margin: 1rem 0 0.4rem;
+}
+
+.error-crash-section p {
+  color: var(--text-soft);
+  margin: 0 0 1rem;
+}
+
+.error-crash-section .error-crash-detail {
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+}
+
 .loading-state {
   border-color: rgba(47, 107, 103, 0.24);
 }
