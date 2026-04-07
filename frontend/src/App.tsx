@@ -14,7 +14,6 @@ import {
   EmptyState,
   ErrorState,
   FilterToolbar,
-  LoadingState,
   SectionHeader,
   SkeletonStackRows,
   SkeletonStatCard,
@@ -1580,7 +1579,10 @@ function DonorDashboardPage() {
       <SessionWelcomeBanner />
       <PageSection title="Donor overview" description="A transparent, personal summary of giving and impact.">
       {donations.isLoading ? (
-        <LoadingState title="Loading your donations" description="Fetching donation history from the API." />
+        <>
+          <div className="stat-grid"><SkeletonStatCard /><SkeletonStatCard /></div>
+          <SkeletonSurface title="Recent giving"><SkeletonTable rows={4} cols={4} /></SkeletonSurface>
+        </>
       ) : (
       <>
       {donations.error ? <ErrorState title="Could not load donations" description={donations.error} /> : null}
@@ -1627,7 +1629,7 @@ function DonorHistoryPage() {
   return (
     <PageSection title="Giving history" description="Donation records and details.">
       {donations.isLoading ? (
-        <LoadingState title="Loading donation history" description="Fetching your giving history from the API." />
+        <SkeletonSurface title="History"><SkeletonTable rows={4} cols={5} /></SkeletonSurface>
       ) : donations.error ? (
         <ErrorState title="Could not load history" description={donations.error} />
       ) : donations.data.length === 0 ? (
@@ -1659,7 +1661,7 @@ function DonorImpactPage() {
   return (
     <PageSection title="Impact of giving" description="See how your contributions translate into real outcomes.">
       {metrics.isLoading ? (
-        <LoadingState title="Loading impact data" description="Fetching impact metrics from the API." />
+        <div className="stat-grid"><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></div>
       ) : (
       <>
       {metrics.error ? <ErrorState title="Could not load impact" description={metrics.error} /> : null}
@@ -1684,7 +1686,7 @@ function DonorProfilePage() {
   return (
     <PageSection title="Profile" description="A lightweight self-service profile for donor contact and preference updates.">
       {supporter.isLoading ? (
-        <LoadingState title="Loading profile" description="Fetching your supporter profile." />
+        <SkeletonSurface title="Profile settings"><SkeletonStackRows count={4} /></SkeletonSurface>
       ) : supporter.error ? (
         <ErrorState title="Could not load profile" description={supporter.error} />
       ) : (
@@ -1733,7 +1735,13 @@ function AdminDashboardPage() {
       <SessionWelcomeBanner />
       <PageSection title="Admin dashboard" description="A calm command center for local-facility operations.">
       {anyLoading ? (
-        <LoadingState title="Loading dashboard" description="Fetching residents, donations, and safehouses from the API." />
+        <>
+          <div className="stat-grid">{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
+          <div className="two-column-grid">
+            <SkeletonSurface title="Recent activity"><SkeletonStackRows count={3} /></SkeletonSurface>
+            <SkeletonSurface title="ML decision support"><SkeletonStackRows count={2} /></SkeletonSurface>
+          </div>
+        </>
       ) : (
       <>
       {residents.error || donations.error || safehouses.error ? (
@@ -1866,7 +1874,7 @@ function CaseloadPage() {
           </label>
         </FilterToolbar>
         {residents.isLoading ? (
-          <LoadingState title="Loading caseload" description="Fetching resident records from the backend route family." />
+          <SkeletonTable rows={6} cols={6} />
         ) : null}
         {residents.error ? (
           <ErrorState title="Using prepared resident fallback" description={residents.error} />
@@ -1898,7 +1906,15 @@ function ResidentDetailPage({ residentId }: { residentId: number }) {
   const residentResource = useApiResource<Resident | null>(`/residents/${residentId}`, null)
 
   if (residentResource.isLoading) {
-    return <PageSection title="Loading resident" description=""><LoadingState title="Loading resident" description="Fetching resident record from the API." /></PageSection>
+    return (
+      <PageSection title="" description="">
+        <div className="stat-grid"><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></div>
+        <div className="two-column-grid">
+          <SkeletonSurface><SkeletonStackRows count={4} /></SkeletonSurface>
+          <SkeletonSurface><SkeletonStackRows count={4} /></SkeletonSurface>
+        </div>
+      </PageSection>
+    )
   }
 
   const resident = residentResource.data
@@ -2061,7 +2077,7 @@ function ResidentSubpageLive({ residentId, apiPath, title, description }: { resi
   return (
     <PageSection title={title} description={description}>
       {resource.isLoading ? (
-        <LoadingState title={`Loading ${title.toLowerCase()}`} description="Fetching records from the API." />
+        <SkeletonSurface title={title}><SkeletonStackRows count={3} /></SkeletonSurface>
       ) : resource.error ? (
         <ErrorState title={`Could not load ${title.toLowerCase()}`} description={resource.error} />
       ) : resource.data.length === 0 ? (
@@ -2090,7 +2106,7 @@ function ResidentSubpageLive({ residentId, apiPath, title, description }: { resi
 
 function ProcessRecordingsPage({ residentId }: { residentId: number }) {
   const resource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/process-recordings`, [])
-  if (resource.isLoading) return <PageSection title="Process recordings" description=""><LoadingState title="Loading recordings" description="Fetching process recordings from the API." /></PageSection>
+  if (resource.isLoading) return <PageSection title="Process recordings" description=""><SkeletonSurface><SkeletonStackRows count={5} /></SkeletonSurface></PageSection>
   if (resource.error) return <PageSection title="Process recordings" description=""><ErrorState title="Could not load recordings" description={resource.error} /></PageSection>
   const items = resource.data
   return (
@@ -2138,7 +2154,7 @@ function ProcessRecordingsPage({ residentId }: { residentId: number }) {
 function HomeVisitationsPage({ residentId }: { residentId: number }) {
   const visitResource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/home-visitations`, [])
   const confResource = useApiResource<ResidentActivity[]>(`/residents/${residentId}/case-conferences`, [])
-  if (visitResource.isLoading || confResource.isLoading) return <PageSection title="Home visitations & case conferences" description=""><LoadingState title="Loading" description="Fetching visit and conference records." /></PageSection>
+  if (visitResource.isLoading || confResource.isLoading) return <PageSection title="Home visitations & case conferences" description=""><SkeletonSurface><SkeletonStackRows count={4} /></SkeletonSurface><SkeletonSurface><SkeletonStackRows count={3} /></SkeletonSurface></PageSection>
   const visits = visitResource.data
   const conferences = confResource.data
   return (
@@ -2290,7 +2306,7 @@ function DonorsPage() {
           </label>
         </FilterToolbar>
         {supporters.isLoading ? (
-          <LoadingState title="Loading supporters" description="Fetching supporter records from the backend." />
+          <SkeletonTable rows={5} cols={5} />
         ) : null}
         {supporters.error ? (
           <ErrorState title="Using prepared supporter fallback" description={supporters.error} />
@@ -2393,7 +2409,7 @@ function ContributionsPage() {
           </label>
         </FilterToolbar>
         {donations.isLoading ? (
-          <LoadingState title="Loading contributions" description="Fetching donation records from the backend." />
+          <SkeletonTable rows={5} cols={5} />
         ) : null}
         {donations.error ? (
           <ErrorState title="Using prepared contribution fallback" description={donations.error} />
@@ -2428,7 +2444,15 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
   const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
 
   if (donationResource.isLoading) {
-    return <PageSection title="Loading donation" description=""><LoadingState title="Loading donation details" description="Fetching donation data from the API." /></PageSection>
+    return (
+      <PageSection title="" description="">
+        <div className="stat-grid"><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></div>
+        <div className="two-column-grid">
+          <SkeletonSurface title="Allocations"><SkeletonTable rows={3} cols={4} /></SkeletonSurface>
+          <SkeletonSurface title="In-kind items"><SkeletonTable rows={2} cols={3} /></SkeletonSurface>
+        </div>
+      </PageSection>
+    )
   }
 
   const donation = donationResource.data
@@ -2452,7 +2476,7 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
       </div>
       <div className="two-column-grid">
         <Surface title="Allocations">
-          {allocations.isLoading ? <LoadingState title="Loading allocations" description="" /> :
+          {allocations.isLoading ? <SkeletonTable rows={3} cols={4} /> :
           allocations.data.length === 0 ? (
             <EmptyState title="No allocations" description="No program allocations are recorded for this donation yet." />
           ) : (
@@ -2468,7 +2492,7 @@ function ContributionDetail({ donationId, donorMode = false }: { donationId: num
           )}
         </Surface>
         <Surface title="In-kind items">
-          {items.isLoading ? <LoadingState title="Loading items" description="" /> :
+          {items.isLoading ? <SkeletonTable rows={2} cols={3} /> :
           items.data.length === 0 ? (
             <EmptyState title="No in-kind items" description="This donation does not currently have in-kind line items." />
           ) : (
@@ -2519,7 +2543,7 @@ function SafehousesPage() {
           </label>
         </FilterToolbar>
         {safehouses.isLoading ? (
-          <LoadingState title="Loading safehouses" description="Fetching facility records from the backend." />
+          <SkeletonTable rows={4} cols={5} />
         ) : null}
         {safehouses.error ? (
           <ErrorState title="Using prepared safehouse fallback" description={safehouses.error} />
@@ -2545,7 +2569,12 @@ function SafehouseDetailPage({ safehouseId }: { safehouseId: number }) {
   const metrics = useApiResource<SafehouseMetric[]>(`/safehouses/${safehouseId}/metrics`, [])
 
   if (safehouseResource.isLoading) {
-    return <PageSection title="Loading safehouse" description=""><LoadingState title="Loading safehouse" description="Fetching facility data from the API." /></PageSection>
+    return (
+      <PageSection title="" description="">
+        <div className="stat-grid"><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></div>
+        <SkeletonSurface title="Monthly metrics"><SkeletonTable rows={4} cols={4} /></SkeletonSurface>
+      </PageSection>
+    )
   }
 
   const safehouse = safehouseResource.data
@@ -2572,7 +2601,7 @@ function SafehouseDetailPage({ safehouseId }: { safehouseId: number }) {
         <StatCard label="Status" value={safehouse.status} />
       </div>
       <Surface title="Monthly metrics">
-        {metrics.isLoading ? <LoadingState title="Loading metrics" description="" /> :
+        {metrics.isLoading ? <SkeletonTable rows={4} cols={4} /> :
         metrics.data.length === 0 ? <EmptyState title="No metrics" description="No monthly metrics have been recorded." /> : (
         <DataTable
           columns={['Month', 'Active residents', 'Staff count', 'School enrollment rate']}
@@ -2598,7 +2627,12 @@ function PartnersPage() {
 
   return (
     <PageSection title="Partners" description="Partner relationships and facility assignments.">
-      {anyLoading ? <LoadingState title="Loading partners" description="Fetching partner data from the API." /> : (
+      {anyLoading ? (
+        <div className="two-column-grid">
+          <SkeletonSurface title="Partner directory"><SkeletonTable rows={4} cols={4} /></SkeletonSurface>
+          <SkeletonSurface title="Assignments"><SkeletonTable rows={4} cols={4} /></SkeletonSurface>
+        </div>
+      ) : (
       <div className="two-column-grid">
         <Surface title="Partner directory">
           {partners.data.length === 0 ? <EmptyState title="No partners" description="No partners have been registered yet." /> : (
@@ -2657,7 +2691,15 @@ function ReportsPage() {
   return (
     <PageSection title="Reports and analytics" description="Aggregated insights and trends for decision-making.">
       {anyLoading ? (
-        <LoadingState title="Loading reports" description="Fetching report data from the API." />
+        <>
+          <div className="stat-grid">{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
+          <SkeletonSurface title="Donation trends"><SkeletonTable rows={4} cols={3} /></SkeletonSurface>
+          <SkeletonSurface title="Annual Accomplishment Report"><SkeletonTable rows={3} cols={4} /></SkeletonSurface>
+          <div className="two-column-grid">
+            <SkeletonSurface title="Safehouse performance"><SkeletonTable rows={3} cols={4} /></SkeletonSurface>
+            <SkeletonSurface title="Reintegration rates"><SkeletonTable rows={3} cols={4} /></SkeletonSurface>
+          </div>
+        </>
       ) : (
       <>
       <div className="stat-grid">
@@ -2668,7 +2710,7 @@ function ReportsPage() {
       </div>
 
       <Surface title="Donation trends">
-        {donationTrends.isLoading ? <LoadingState title="Loading trends" description="" /> :
+        {donationTrends.isLoading ? <SkeletonTable rows={4} cols={3} /> :
         donationTrends.data.length === 0 ? <EmptyState title="No trend data" description="Donation trend data will appear once the API provides it." /> : (
         <DataTable
           columns={['Month', 'Total donated', 'Unique donors']}
@@ -2678,7 +2720,7 @@ function ReportsPage() {
       </Surface>
 
       <Surface title="Annual Accomplishment Report — Services">
-        {accomplishments.isLoading ? <LoadingState title="Loading accomplishments" description="" /> :
+        {accomplishments.isLoading ? <SkeletonTable rows={3} cols={4} /> :
         accomplishments.data.length === 0 ? <EmptyState title="No accomplishment data" description="Accomplishment data will appear once the API provides it." /> : (
         <DataTable
           columns={['Service area', 'Beneficiaries', 'Sessions delivered', 'Key outcomes']}
@@ -2698,7 +2740,7 @@ function ReportsPage() {
         </Surface>
 
         <Surface title="Reintegration success rates">
-          {reintegrationStats.isLoading ? <LoadingState title="Loading" description="" /> :
+          {reintegrationStats.isLoading ? <SkeletonTable rows={3} cols={4} /> :
           reintegrationStats.data.length === 0 ? <EmptyState title="No reintegration data" description="Reintegration statistics will appear once the API provides them." /> : (
           <DataTable
             columns={['Quarter', 'Placements', 'Stable at 90 days', 'Success rate']}
@@ -2709,7 +2751,7 @@ function ReportsPage() {
       </div>
 
       <Surface title="Resident outcome metrics">
-        {outcomeMetrics.isLoading ? <LoadingState title="Loading" description="" /> :
+        {outcomeMetrics.isLoading ? <SkeletonTable rows={4} cols={4} /> :
         outcomeMetrics.data.length === 0 ? <EmptyState title="No outcome data" description="Outcome metrics will appear once the API provides them." /> : (
         <DataTable
           columns={['Metric', 'Current value', 'Change vs. last quarter', 'Notes']}
@@ -2765,7 +2807,7 @@ function OutreachPage() {
             </label>
           </FilterToolbar>
           {posts.isLoading ? (
-            <LoadingState title="Loading post performance" description="Fetching social media post records from the backend." />
+            <SkeletonTable rows={4} cols={4} />
           ) : null}
           {posts.error ? (
             <ErrorState title="Using prepared outreach fallback" description={posts.error} />
@@ -2813,16 +2855,14 @@ function SuperAdminDashboardPage() {
       <SessionWelcomeBanner />
       <PageSection title="Global dashboard" description="Cross-facility oversight and governance.">
       {anyLoading ? (
-        <LoadingState title="Loading global view" description="Fetching organization-wide data from the API." />
+        <div className="stat-grid">{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
       ) : (
-      <>
       <div className="stat-grid">
         <StatCard label="Facilities" value={String(safehouses.data.length)} />
         <StatCard label="Total residents" value={String(residents.data.length)} />
         <StatCard label="Active residents" value={String(residents.data.filter((r) => r.caseStatus === 'Active').length)} />
         <StatCard label="High-risk residents" value={String(residents.data.filter((r) => r.currentRiskLevel === 'High').length)} />
       </div>
-      </>
       )}
     </PageSection>
     </>
@@ -2844,7 +2884,7 @@ function UsersPage() {
 
   return (
     <PageSection title="Users" description="User management with role and facility scope.">
-      {users.isLoading ? <LoadingState title="Loading users" description="Fetching user directory from the API." /> :
+      {users.isLoading ? <SkeletonSurface title="User directory"><SkeletonTable rows={4} cols={4} /></SkeletonSurface> :
       users.data.length === 0 ? <EmptyState title="No users loaded" description="User data will appear once the API provides it." /> : (
       <Surface title="User directory">
         <DataTable
@@ -2903,7 +2943,7 @@ function SuperAdminReportsPage() {
 
   return (
     <PageSection title="Global reports" description="Cross-facility comparison and organization-wide trend analysis.">
-      {safehouses.isLoading ? <LoadingState title="Loading global reports" description="Fetching facility data from the API." /> :
+      {safehouses.isLoading ? <SkeletonSurface title="Facility comparison"><SkeletonTable rows={4} cols={4} /></SkeletonSurface> :
       safehouses.data.length === 0 ? <EmptyState title="No facilities" description="Facility data will appear once the API provides it." /> : (
       <Surface title="Facility comparison">
         <DataTable
