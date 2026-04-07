@@ -92,7 +92,7 @@ public class AdminUsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<AdminUserRow>> Update(string id, [FromBody] UpdateUserBody body, CancellationToken ct)
+    public async Task<IActionResult> Update(string id, [FromBody] UpdateUserBody body, CancellationToken ct)
     {
         var user = await _userManager.FindByIdAsync(id);
         if (user is null)
@@ -114,8 +114,17 @@ public class AdminUsersController : ControllerBase
         }
 
         var currentRoles = await _userManager.GetRolesAsync(user);
-        await _userManager.RemoveFromRolesAsync(user, currentRoles);
-        await _userManager.AddToRoleAsync(user, roleName);
+        var removeRoles = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+        if (!removeRoles.Succeeded)
+        {
+            return BadRequest(new { error = string.Join("; ", removeRoles.Errors.Select(e => e.Description)) });
+        }
+
+        var addRole = await _userManager.AddToRoleAsync(user, roleName);
+        if (!addRole.Succeeded)
+        {
+            return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
+        }
 
         var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
         _db.StaffSafehouseAssignments.RemoveRange(assignments);
@@ -133,16 +142,29 @@ public class AdminUsersController : ControllerBase
         var status = (body.Status ?? "active").Trim().ToLowerInvariant();
         if (status == "locked")
         {
-            await _userManager.SetLockoutEnabledAsync(user, true);
-            await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+            var lockoutEnabled = await _userManager.SetLockoutEnabledAsync(user, true);
+            if (!lockoutEnabled.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", lockoutEnabled.Errors.Select(e => e.Description)) });
+            }
+
+            var lockoutEnd = await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddYears(100));
+            if (!lockoutEnd.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", lockoutEnd.Errors.Select(e => e.Description)) });
+            }
         }
         else
         {
-            await _userManager.SetLockoutEndDateAsync(user, null);
+            var unlock = await _userManager.SetLockoutEndDateAsync(user, null);
+            if (!unlock.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", unlock.Errors.Select(e => e.Description)) });
+            }
         }
 
-        var fresh = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
-        return Ok(await MapUserAsync(fresh, ct));
+        // Return success immediately after persistence; callers reload the user list separately.
+        return NoContent();
     }
 
     [HttpDelete("{id}")]
