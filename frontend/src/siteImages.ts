@@ -9,7 +9,8 @@ export const siteImages = {
   programHealing: '/images/journal.webp',
   programTeaching: '/images/paintings.jpg',
   donate: '/images/PinkPantsArmsUpByOcean.jpg',
-  impactBanner: '/images/service.jpg',
+  impactBanner: '/images/medical.jpg',
+  impactHero: '/images/HoldingHandsAtBeach.jpg',
   gallery: [
     '/images/HoldingHandsAtBeach.jpg',
     '/images/girls.jpeg',
