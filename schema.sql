@@ -464,3 +464,30 @@ CREATE TABLE staff_safehouse_assignments (
 );
 CREATE INDEX ix_staff_safehouse_assignments_safehouse
     ON staff_safehouse_assignments (safehouse_id);
+
+-- Admin-editable report rows (API: /reports/*)
+CREATE TABLE report_donation_trends (
+    id             BIGSERIAL PRIMARY KEY,
+    month_label    TEXT NOT NULL,
+    amount         NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    donors         INTEGER NOT NULL DEFAULT 0,
+    display_order  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE report_accomplishments (
+    id                  BIGSERIAL PRIMARY KEY,
+    service_area        TEXT NOT NULL,
+    beneficiaries       INTEGER NOT NULL DEFAULT 0,
+    sessions_delivered  INTEGER NOT NULL DEFAULT 0,
+    outcomes            TEXT NOT NULL DEFAULT '',
+    display_order       INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE report_reintegration_stats (
+    id              BIGSERIAL PRIMARY KEY,
+    quarter_label   TEXT NOT NULL,
+    placed          INTEGER NOT NULL DEFAULT 0,
+    success_at_90d  INTEGER NOT NULL DEFAULT 0,
+    rate_label      TEXT NOT NULL DEFAULT '',
+    display_order   INTEGER NOT NULL DEFAULT 0
+);
