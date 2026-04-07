@@ -113,6 +113,17 @@ export function getMlSignalTone(
   return 'success'
 }
 
+/** Map case-file risk labels to a pseudo-score for ML-style pills when watchlist snapshots are empty. */
+export function caseFileRiskLevelToScore(level: string | null | undefined): number {
+  if (!level) return 0.35
+  const key = level.trim().toLowerCase()
+  if (key === 'critical' || key === 'severe') return 0.92
+  if (key === 'high') return 0.78
+  if (key === 'moderate' || key === 'medium') return 0.52
+  if (key === 'low') return 0.2
+  return 0.4
+}
+
 export function getMlSignalLabel(
   pipelineName: string,
   score: number | null | undefined,

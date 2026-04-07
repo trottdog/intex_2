@@ -56,6 +56,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<MlPredictionSnapshot> MlPredictionSnapshots => Set<MlPredictionSnapshot>();
 
+    public DbSet<DonationTrendRow> ReportDonationTrends => Set<DonationTrendRow>();
+
+    public DbSet<AccomplishmentReportRow> ReportAccomplishments => Set<AccomplishmentReportRow>();
+
+    public DbSet<ReintegrationStatRow> ReportReintegrationStats => Set<ReintegrationStatRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
