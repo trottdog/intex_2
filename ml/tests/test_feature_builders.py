@@ -53,3 +53,13 @@ def test_resident_feature_tables_capture_expected_label_balance() -> None:
     assert int(
         resident_monthly_features["label_reintegration_complete_next_90d"].sum()
     ) == 36
+    assert "label_case_prioritization_next_60d" in resident_monthly_features.columns
+    assert "label_counseling_progress_next_90d" in resident_monthly_features.columns
+    assert "label_education_improvement_next_120d" in resident_monthly_features.columns
+    assert "label_wellbeing_deterioration_next_90d" in resident_monthly_features.columns
+    assert "label_supportive_home_visit_next_120d" in resident_monthly_features.columns
+    assert int(resident_monthly_features["label_case_prioritization_next_60d"].sum()) > 0
+    assert int(resident_monthly_features["label_counseling_progress_next_90d"].sum()) > 0
+    assert int(resident_monthly_features["label_education_improvement_next_120d"].sum()) > 0
+    assert int(resident_monthly_features["label_wellbeing_deterioration_next_90d"].sum()) > 0
+    assert int(resident_monthly_features["label_supportive_home_visit_next_120d"].sum()) > 0

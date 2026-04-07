@@ -79,6 +79,14 @@ Run the donor and outreach expansion pass, including the shared donor snapshot t
 py -3 ml/scripts/run_phase_c_donor_outreach.py
 ```
 
+## Phase D Command
+
+Run the resident expansion pass, including the refreshed resident-month snapshot table, the new Phase D predictive pipelines, and regenerated notebook deliverables:
+
+```powershell
+py -3 ml/scripts/run_phase_d_resident_expansion.py
+```
+
 ## Phase 6 Command
 
 Run the full nightly-style ML refresh locally without writing back to Supabase:

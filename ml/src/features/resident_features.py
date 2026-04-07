@@ -22,6 +22,7 @@ FAMILY_COOPERATION_SCORES = {
 
 DISTRESS_STATES = {"Anxious", "Sad", "Angry", "Withdrawn", "Distressed"}
 POSITIVE_END_STATES = {"Calm", "Hopeful", "Happy"}
+SUPPORTIVE_FAMILY_LEVELS = {"Cooperative", "Highly Cooperative"}
 
 
 def build_resident_features(
@@ -96,6 +97,11 @@ def build_resident_features(
     )
     visitations["favorable_visit_flag"] = visitations["visit_outcome"].eq("Favorable")
     visitations["unfavorable_visit_flag"] = visitations["visit_outcome"].eq("Unfavorable")
+    visitations["supportive_visit_flag"] = (
+        visitations["visit_outcome"].eq("Favorable")
+        & ~visitations["safety_concerns_noted"].fillna(False)
+        & visitations["family_cooperation_level"].isin(SUPPORTIVE_FAMILY_LEVELS)
+    )
     visitation_agg = (
         visitations.groupby("resident_id")
         .agg(
@@ -105,6 +111,7 @@ def build_resident_features(
             avg_family_cooperation_score=("family_cooperation_score", "mean"),
             favorable_visit_count=("favorable_visit_flag", "sum"),
             unfavorable_visit_count=("unfavorable_visit_flag", "sum"),
+            supportive_visit_count=("supportive_visit_flag", "sum"),
         )
         .reset_index()
     )
@@ -257,6 +264,12 @@ def build_resident_monthly_features(
     visitations["family_cooperation_score"] = visitations["family_cooperation_level"].map(
         FAMILY_COOPERATION_SCORES
     )
+    visitations["supportive_visit_flag"] = (
+        visitations["visit_outcome"].eq("Favorable")
+        & ~visitations["safety_concerns_noted"].fillna(False)
+        & visitations["family_cooperation_level"].isin(SUPPORTIVE_FAMILY_LEVELS)
+    )
+    visitations["unfavorable_visit_flag"] = visitations["visit_outcome"].eq("Unfavorable")
     process_recordings["distress_observed_flag"] = process_recordings[
         "emotional_state_observed"
     ].isin(DISTRESS_STATES)
@@ -332,12 +345,22 @@ def build_resident_monthly_features(
             snapshot_date = pd.Timestamp(snapshot_month)
             recent_30_start = snapshot_date - pd.Timedelta(days=30)
             recent_90_start = snapshot_date - pd.Timedelta(days=90)
+            future_30_end = snapshot_date + pd.Timedelta(days=30)
+            future_60_end = snapshot_date + pd.Timedelta(days=60)
+            future_90_end = snapshot_date + pd.Timedelta(days=90)
+            future_120_end = snapshot_date + pd.Timedelta(days=120)
 
             process_30 = _window(resident_process, "session_date", recent_30_start, snapshot_date)
             process_90 = _window(resident_process, "session_date", recent_90_start, snapshot_date)
             visits_90 = _window(resident_visits, "visit_date", recent_90_start, snapshot_date)
             incidents_30 = _window(resident_incidents, "incident_date", recent_30_start, snapshot_date)
             incidents_90 = _window(resident_incidents, "incident_date", recent_90_start, snapshot_date)
+            incidents_future_60 = _window(
+                resident_incidents,
+                "incident_date",
+                snapshot_date,
+                future_60_end,
+            )
             incidents_past = resident_incidents.loc[
                 resident_incidents["incident_date"].le(snapshot_date)
             ]
@@ -345,16 +368,72 @@ def build_resident_monthly_features(
             plans_past = resident_plans.loc[resident_plans["created_at"].le(snapshot_date)]
             education_90 = _window(resident_education, "record_date", recent_90_start, snapshot_date)
             education_past = resident_education.loc[resident_education["record_date"].le(snapshot_date)]
+            education_future_120 = _window(
+                resident_education,
+                "record_date",
+                snapshot_date,
+                future_120_end,
+            )
             health_90 = _window(resident_health, "record_date", recent_90_start, snapshot_date)
             health_past = resident_health.loc[resident_health["record_date"].le(snapshot_date)]
+            health_future_90 = _window(
+                resident_health,
+                "record_date",
+                snapshot_date,
+                future_90_end,
+            )
+            process_future_60 = _window(
+                resident_process,
+                "session_date",
+                snapshot_date,
+                future_60_end,
+            )
+            process_future_90 = _window(
+                resident_process,
+                "session_date",
+                snapshot_date,
+                future_90_end,
+            )
+            visits_future_60 = _window(
+                resident_visits,
+                "visit_date",
+                snapshot_date,
+                future_60_end,
+            )
+            visits_future_120 = _window(
+                resident_visits,
+                "visit_date",
+                snapshot_date,
+                future_120_end,
+            )
 
             latest_education = education_past.tail(1)
+            future_education = education_future_120.tail(1)
             latest_health = health_past.tail(1)
+            future_health = health_future_90.tail(1)
             unresolved_incidents = incidents_past.loc[
                 incidents_past["resolution_date"].isna()
                 | incidents_past["resolution_date"].gt(snapshot_date)
             ]
             completion_date = completion_dates.get(resident_id)
+            recent_visit_supportive_count = (
+                int(visits_90["supportive_visit_flag"].sum()) if not visits_90.empty else 0
+            )
+            future_process_follow_up_count = (
+                int(process_future_60["concerns_flagged"].sum())
+                + int(process_future_60["referral_made"].sum())
+                if not process_future_60.empty
+                else 0
+            )
+            future_visit_follow_up_count = (
+                int(visits_future_60["follow_up_needed"].sum()) if not visits_future_60.empty else 0
+            )
+            latest_health_composite = _latest_health_composite(latest_health)
+            future_health_composite = _latest_health_composite(future_health)
+            health_drop_count = _health_drop_count(latest_health, future_health)
+            health_composite_delta = None
+            if latest_health_composite is not None and future_health_composite is not None:
+                health_composite_delta = future_health_composite - latest_health_composite
 
             resident_rows.append(
                 {
@@ -377,10 +456,32 @@ def build_resident_monthly_features(
                     "process_avg_session_duration_90d": float(process_90["session_duration_minutes"].mean()) if not process_90.empty else 0.0,
                     "process_distress_observed_90d": int(process_90["distress_observed_flag"].sum()) if not process_90.empty else 0,
                     "process_positive_end_state_90d": int(process_90["positive_end_state_flag"].sum()) if not process_90.empty else 0,
+                    "process_progress_share_90d": _safe_share(
+                        int(process_90["progress_noted"].sum()) if not process_90.empty else 0,
+                        len(process_90),
+                    ),
+                    "process_concerns_share_90d": _safe_share(
+                        int(process_90["concerns_flagged"].sum()) if not process_90.empty else 0,
+                        len(process_90),
+                    ),
+                    "process_positive_end_state_share_90d": _safe_share(
+                        int(process_90["positive_end_state_flag"].sum()) if not process_90.empty else 0,
+                        len(process_90),
+                    ),
                     "home_visit_recent_90d_count": len(visits_90),
                     "visit_safety_concerns_90d": int(visits_90["safety_concerns_noted"].sum()) if not visits_90.empty else 0,
                     "visit_follow_up_needed_90d": int(visits_90["follow_up_needed"].sum()) if not visits_90.empty else 0,
                     "visit_avg_family_cooperation_90d": float(visits_90["family_cooperation_score"].mean()) if not visits_90.empty else 0.0,
+                    "home_visit_recent_90d_supportive_count": recent_visit_supportive_count,
+                    "home_visit_recent_90d_unfavorable_count": int(visits_90["unfavorable_visit_flag"].sum()) if not visits_90.empty else 0,
+                    "home_visit_supportive_share_90d": _safe_share(
+                        recent_visit_supportive_count,
+                        len(visits_90),
+                    ),
+                    "home_visit_follow_up_share_90d": _safe_share(
+                        int(visits_90["follow_up_needed"].sum()) if not visits_90.empty else 0,
+                        len(visits_90),
+                    ),
                     "incident_recent_30d_count": len(incidents_30),
                     "incident_recent_90d_count": len(incidents_90),
                     "high_severity_incidents_90d": int(incidents_90["high_severity_flag"].sum()) if not incidents_90.empty else 0,
@@ -390,6 +491,8 @@ def build_resident_monthly_features(
                     "safety_plans_cumulative": int(plans_past["plan_category"].eq("Safety").sum()) if not plans_past.empty else 0,
                     "education_plans_cumulative": int(plans_past["plan_category"].eq("Education").sum()) if not plans_past.empty else 0,
                     "physical_health_plans_cumulative": int(plans_past["plan_category"].eq("Physical Health").sum()) if not plans_past.empty else 0,
+                    "latest_enrollment_status": _latest_text_value(latest_education, "enrollment_status"),
+                    "latest_completion_status": _latest_text_value(latest_education, "completion_status"),
                     "latest_attendance_rate": _latest_value(latest_education, "attendance_rate"),
                     "latest_progress_percent": _latest_value(latest_education, "progress_percent"),
                     "avg_attendance_rate_90d": float(education_90["attendance_rate"].mean()) if not education_90.empty else 0.0,
@@ -401,11 +504,52 @@ def build_resident_monthly_features(
                     "latest_bmi": _latest_value(latest_health, "bmi"),
                     "avg_general_health_score_90d": float(health_90["general_health_score"].mean()) if not health_90.empty else 0.0,
                     "avg_nutrition_score_90d": float(health_90["nutrition_score"].mean()) if not health_90.empty else 0.0,
+                    "avg_sleep_quality_score_90d": float(health_90["sleep_quality_score"].mean()) if not health_90.empty else 0.0,
+                    "avg_energy_level_score_90d": float(health_90["energy_level_score"].mean()) if not health_90.empty else 0.0,
                     "case_closed_as_of_snapshot": pd.notna(resident.date_closed) and resident.date_closed <= snapshot_date,
+                    "future_window_complete_30d": future_30_end <= max_observation_date,
+                    "future_window_complete_60d": future_60_end <= max_observation_date,
+                    "future_window_complete_90d": future_90_end <= max_observation_date,
+                    "future_window_complete_120d": future_120_end <= max_observation_date,
                     "label_incident_next_30d": _has_event_in_horizon(
                         resident_incidents["incident_date"],
                         snapshot_date,
                         30,
+                    ),
+                    "label_case_prioritization_next_60d": bool(
+                        not incidents_future_60.empty
+                        or (future_process_follow_up_count > 0 and future_visit_follow_up_count > 0)
+                    ),
+                    "label_counseling_progress_next_90d": bool(
+                        len(process_future_90) >= 2
+                        and process_future_90["progress_noted"].mean() >= 0.80
+                        and process_future_90["positive_end_state_flag"].mean() >= 0.60
+                        and process_future_90["concerns_flagged"].mean() <= 0.30
+                    ),
+                    "label_education_improvement_next_120d": bool(
+                        not latest_education.empty
+                        and not future_education.empty
+                        and (
+                            float(future_education.iloc[-1]["attendance_rate"])
+                            - float(latest_education.iloc[-1]["attendance_rate"])
+                            >= 0.05
+                            or float(future_education.iloc[-1]["progress_percent"])
+                            - float(latest_education.iloc[-1]["progress_percent"])
+                            >= 5.0
+                            or (
+                                latest_education.iloc[-1]["completion_status"] != "Completed"
+                                and future_education.iloc[-1]["completion_status"] == "Completed"
+                            )
+                        )
+                    ),
+                    "label_wellbeing_deterioration_next_90d": bool(
+                        health_drop_count >= 2
+                        and health_composite_delta is not None
+                        and health_composite_delta <= 0
+                    ),
+                    "label_supportive_home_visit_next_120d": bool(
+                        not visits_future_120.empty
+                        and visits_future_120["supportive_visit_flag"].mean() >= 0.50
                     ),
                     "label_reintegration_complete_next_90d": (
                         pd.notna(completion_date)
@@ -439,6 +583,58 @@ def _latest_value(df: pd.DataFrame, column: str) -> float:
     if pd.isna(value):
         return 0.0
     return float(value)
+
+
+def _latest_text_value(
+    df: pd.DataFrame,
+    column: str,
+    *,
+    default: str = "Unknown",
+) -> str:
+    if df.empty:
+        return default
+    value = df.iloc[-1][column]
+    if pd.isna(value):
+        return default
+    return str(value)
+
+
+def _latest_health_composite(df: pd.DataFrame) -> float | None:
+    if df.empty:
+        return None
+    latest = df.iloc[-1][
+        [
+            "general_health_score",
+            "nutrition_score",
+            "sleep_quality_score",
+            "energy_level_score",
+        ]
+    ]
+    if latest.isna().all():
+        return None
+    return float(latest.mean())
+
+
+def _health_drop_count(past_df: pd.DataFrame, future_df: pd.DataFrame) -> int:
+    if past_df.empty or future_df.empty:
+        return 0
+    past_row = past_df.iloc[-1]
+    future_row = future_df.iloc[-1]
+    component_columns = [
+        "general_health_score",
+        "nutrition_score",
+        "sleep_quality_score",
+        "energy_level_score",
+    ]
+    return int(
+        sum(float(future_row[column]) < float(past_row[column]) for column in component_columns)
+    )
+
+
+def _safe_share(numerator: int | float, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return float(numerator) / float(denominator)
 
 
 def _has_event_in_horizon(
