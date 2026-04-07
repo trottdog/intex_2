@@ -3,6 +3,7 @@ import type { Supporter } from '../../data/mockData'
 import { useApiResource } from '../../lib/api'
 import { ErrorState, SkeletonStackRows, SkeletonSurface, Surface } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
+import { NAME_INPUT_PATTERN, NAME_INPUT_TITLE } from '../../utils/formValidation'
 
 export function DonorProfilePage() {
   const { user } = useSession()
@@ -19,20 +20,27 @@ export function DonorProfilePage() {
         <ErrorState title="Could not load profile" description={supporter.error} />
       ) : (
       <Surface title="Profile settings" subtitle="Update your contact information and preferences.">
-        <form className="form-grid">
+        <form className="form-grid" onSubmit={(event) => event.preventDefault()}>
           <label>
             Name
-            <input defaultValue={supporter.data?.displayName ?? user?.fullName ?? ''} />
+            <input
+              required
+              minLength={2}
+              maxLength={120}
+              pattern={NAME_INPUT_PATTERN}
+              title={NAME_INPUT_TITLE}
+              defaultValue={supporter.data?.displayName ?? user?.fullName ?? ''}
+            />
           </label>
           <label>
             Email
-            <input defaultValue={supporter.data?.email ?? user?.email ?? ''} />
+            <input type="email" required maxLength={254} defaultValue={supporter.data?.email ?? user?.email ?? ''} />
           </label>
           <label>
             Region
-            <input defaultValue={supporter.data?.region ?? ''} />
+            <input minLength={2} maxLength={120} defaultValue={supporter.data?.region ?? ''} />
           </label>
-          <button className="primary-button full-span" type="button">
+          <button className="primary-button full-span" type="submit">
             Save changes
           </button>
         </form>

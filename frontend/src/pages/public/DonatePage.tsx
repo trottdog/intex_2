@@ -1,12 +1,26 @@
 import { useState } from 'react'
 import { Surface } from '../../components/ui'
 import { siteImages } from '../../siteImages'
+import { NAME_INPUT_PATTERN, NAME_INPUT_TITLE } from '../../utils/formValidation'
 
 export function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
   const [submitted, setSubmitted] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('250')
   const [purpose, setPurpose] = useState('Emergency care and stabilization')
+
+  const resetDonationForm = () => {
+    setSubmitted(false)
+    setDeletePending(false)
+  }
+
+  const handleDeleteDonation = () => {
+    setName('')
+    setAmount('250')
+    setPurpose('Emergency care and stabilization')
+    resetDonationForm()
+  }
 
   return (
     <div className="public-page donate-page">
@@ -28,26 +42,79 @@ export function DonatePage({ donorMode = false }: { donorMode?: boolean }) {
           >
             {submitted ? (
               <div className="success-panel">
-                <h3>Donation submitted</h3>
-                <p>
-                  {name || 'Supporter'} pledged <strong>${amount}</strong> toward <strong>{purpose}</strong>. The intended post-submit handoff is a receipt, a profile link, and a clear next step into the donor portal.
-                </p>
+                <div>
+                  <h3>Donation submitted</h3>
+                  <p>
+                    {name || 'Supporter'} pledged <strong>${amount}</strong> toward <strong>{purpose}</strong>. The intended post-submit handoff is a receipt, a profile link, and a clear next step into the donor portal.
+                  </p>
+                </div>
+                {deletePending ? (
+                  <div className="success-confirmation" role="alert">
+                    <p>
+                      Delete this donation draft? This will clear the current entry and return you to the form.
+                    </p>
+                    <div className="success-actions">
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => setDeletePending(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button className="danger-button" type="button" onClick={handleDeleteDonation}>
+                        Delete donation
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="success-actions">
+                    <button className="secondary-button" type="button" onClick={resetDonationForm}>
+                      Make another donation
+                    </button>
+                    <button className="danger-button" type="button" onClick={() => setDeletePending(true)}>
+                      Delete donation
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <form
                 className="form-grid"
                 onSubmit={(event) => {
                   event.preventDefault()
+                  const form = event.currentTarget
+                  if (!form.checkValidity()) {
+                    form.reportValidity()
+                    return
+                  }
+                  setDeletePending(false)
                   setSubmitted(true)
                 }}
               >
                 <label>
                   Donor name
-                  <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Maya Thompson" />
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    pattern={NAME_INPUT_PATTERN}
+                    title={NAME_INPUT_TITLE}
+                    placeholder="Maya Thompson"
+                  />
                 </label>
                 <label>
                   Donation amount
-                  <input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+                  <input
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    step="0.01"
+                    required
+                  />
                 </label>
                 <label className="full-span">
                   Program focus
