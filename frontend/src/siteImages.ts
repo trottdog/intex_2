@@ -2,20 +2,19 @@
 export const siteImages = {
   logo: '/images/logo.png',
   homeHero: '/images/Hands_Circle.jpg',
-  featureStory: '/images/HoldingHandsAtBeach.jpg',
-  featureOps: '/images/girls.jpeg',
-  featureMl: '/images/SunsetArmsUp.jpg',
-  programCaring: '/images/sitting.jpg',
-  programHealing: '/images/meditation.jpg',
-  programTeaching: '/images/parola.jpg',
-  donate: '/images/bracelets.jpeg',
-  impactBanner: '/images/PinkShirtPinkFlower-768x705.jpg',
-  /** Extra home gallery stills */
+  featureStory: '/images/together.webp',
+  featureOps: '/images/group.jpg',
+  featureMl: '/images/conference.jpg',
+  programCaring: '/images/baby.jpg',
+  programHealing: '/images/journal.webp',
+  programTeaching: '/images/paintings.jpg',
+  donate: '/images/PinkPantsArmsUpByOcean.jpg',
+  impactBanner: '/images/service.jpg',
   gallery: [
-    '/images/BlueWhiteSpotsWStar.jpg',
-    '/images/GreenGrassFingerStar-e1741389539890.jpg',
-    '/images/BackwardsJump-e1741389606772.jpg',
-    '/images/medical.jpg',
+    '/images/HoldingHandsAtBeach.jpg',
+    '/images/girls.jpeg',
+    '/images/SunsetArmsUp.jpg',
+    '/images/sitting.jpg',
   ],
 } as const
 

@@ -1090,7 +1090,7 @@ const mockCarouselPosts = [
     likes: 312,
     comments: 47,
     icon: socialChannels[3].icon,
-    photo: '/images/BackwardsJump-e1741389606772.jpg',
+    photo: '/images/friends.jpg',
   },
   {
     platform: 'Facebook',
@@ -1100,7 +1100,7 @@ const mockCarouselPosts = [
     likes: 528,
     comments: 93,
     icon: socialChannels[1].icon,
-    photo: '/images/medical.jpg',
+    photo: '/images/beachtime.jpg',
   },
   {
     platform: 'YouTube',
@@ -1110,7 +1110,7 @@ const mockCarouselPosts = [
     likes: 1104,
     comments: 186,
     icon: socialChannels[0].icon,
-    photo: '/images/GreenGrassFingerStar-e1741389539890.jpg',
+    photo: '/images/duo.jpg',
   },
   {
     platform: 'TikTok',
@@ -1120,7 +1120,7 @@ const mockCarouselPosts = [
     likes: 4870,
     comments: 342,
     icon: socialChannels[4].icon,
-    photo: '/images/BlueWhiteSpotsWStar.jpg',
+    photo: '/images/puzzle.webp',
   },
   {
     platform: 'X / Twitter',
@@ -1130,7 +1130,7 @@ const mockCarouselPosts = [
     likes: 287,
     comments: 54,
     icon: socialChannels[2].icon,
-    photo: '/images/bracelets.jpeg',
+    photo: '/images/pexels-photo-296282.jpeg',
   },
 ]
 
