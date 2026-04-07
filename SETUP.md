@@ -83,7 +83,7 @@ Open **http://localhost:5173**. In development, API calls go to **`/api/...`** a
 
 **Use the deployed Azure API from localhost**
 
-1. Create **`frontend/.env.development.local`** (gitignored) — loaded only for **`npm run dev`**, so production **`npm run build`** does not embed this URL:
+1. Create **`frontend/.env.development.local`** (gitignored) - loaded only for **`npm run dev`**, so production **`npm run build`** does not embed this URL:
 
    ```bash
    VITE_API_BASE_URL=https://intex-gtgzecb5avarh7gg.centralus-01.azurewebsites.net
@@ -91,7 +91,7 @@ Open **http://localhost:5173**. In development, API calls go to **`/api/...`** a
 
    No trailing slash. Restart **`npm run dev`** after changing env vars. (A committed template is optional; see `frontend/.env.example`.)
 
-2. The Azure app must run with **`Auth:Cookie:CrossSite`** enabled so the `Beacon.Auth` cookie can be set on cross-origin requests from `http://localhost:5173` (`SameSite=None; Secure`). The repo includes **`appsettings.Production.json`** with `"Auth:Cookie:CrossSite": true` — ensure **`ASPNETCORE_ENVIRONMENT=Production`** on App Service (or set the same flag via Application Settings: `Auth__Cookie__CrossSite=true`).
+2. The Azure app must run with **`Auth:Cookie:CrossSite`** enabled so the `Beacon.Auth` cookie can be set on cross-origin requests from `http://localhost:5173` (`SameSite=None; Secure`). The repo includes **`appsettings.Production.json`** with `"Auth:Cookie:CrossSite": true` - ensure **`ASPNETCORE_ENVIRONMENT=Production`** on App Service (or set the same flag via Application Settings: `Auth__Cookie__CrossSite=true`).
 
 3. CORS on the API already allows `http://localhost:5173` with credentials (`Program.cs`).
 
@@ -99,19 +99,20 @@ To switch back to a **local** API, delete or edit **`frontend/.env.development.l
 
 **Production static site (e.g. https://beacon.trottdog.com)**
 
-- If the live site calls **`http://localhost:4000`**, the browser will block it with **Private Network Access** / “loopback” errors. That is not fixed by CORS headers on the API; the **production bundle must use your public API URL**.
-- **`frontend/.env.production`** (committed) sets `VITE_API_BASE_URL` to the Azure API. After changing it, run **`npm run build`** and redeploy the static site.
-- **`Program.cs`** must list your frontend origin with **`AllowCredentials`** (e.g. `https://beacon.trottdog.com` and `https://www.beacon.trottdog.com`). Redeploy the API after CORS changes.
+- If the live site calls **`http://localhost:4000`**, the browser will block it with **Private Network Access** / "loopback" errors. That is not fixed by CORS headers on the API; the **production bundle must use your public API URL**.
+- On Vercel, keep the frontend pointed at **`/api`**. The committed **`frontend/vercel.json`** rewrites `/api/*` to the Azure API so the `Beacon.Auth` cookie is set as a **first-party** cookie on `beacon.trottdog.com`.
+- Pointing the frontend directly at `https://intex-gtgzecb5avarh7gg.centralus-01.azurewebsites.net` keeps CORS working, but it makes auth cookie usage **cross-site / third-party**, which modern browsers may block.
+- **`Program.cs`** must still list your frontend origin with **`AllowCredentials`** (e.g. `https://beacon.trottdog.com` and `https://www.beacon.trottdog.com`). Redeploy the API after CORS changes.
 
 **Frontend auth (aligned with `RULES.md`):**
 
-- Session: `frontend/src/app/session.tsx` — calls `GET /auth/me` with credentials; maps Identity roles (`SuperAdmin`, `Admin`, `Donor`) to UI roles **case-insensitively**.
+- Session: `frontend/src/app/session.tsx` - calls `GET /auth/me` with credentials; maps Identity roles (`SuperAdmin`, `Admin`, `Donor`) to UI roles **case-insensitively**.
 - API helpers: `frontend/src/lib/authApi.ts` and `frontend/src/lib/api.ts` use **`credentials: 'include'`** so the `Beacon.Auth` cookie is sent.
 - **Staff scope:** `/auth/me` returns **`safehouseIds`** for `Admin` users; admin/caseload views filter mock or live lists by that scope where implemented.
 
 ## 5. Login credentials
 
-Passwords must match **how users were created**: SQL hashes vs. `dotnet user-secrets` vs. the EF seeder. If login returns **400** with “Invalid email or password”, the stored hash does not match the password you typed (or the account is locked after too many failures).
+Passwords must match **how users were created**: SQL hashes vs. `dotnet user-secrets` vs. the EF seeder. If login returns **400** with "Invalid email or password", the stored hash does not match the password you typed (or the account is locked after too many failures).
 
 ### SuperAdmin
 
@@ -166,6 +167,8 @@ Username pattern: `donor_{supporterId}`
 | POST   | `/auth/logout`   | Clears auth cookie                                   |
 
 Login from the frontend requires `credentials: 'include'` on fetch calls.
+
+Production note: cookie auth is most reliable when the browser talks to the API through the same site (for this repo, `https://beacon.trottdog.com/api/...` via the Vercel rewrite). Direct cross-site calls to the Azure hostname can pass CORS and still fail when third-party cookies are restricted.
 
 ## 7. Quick test (API on port 4000)
 

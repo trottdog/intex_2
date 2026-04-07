@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 
 /**
- * In production, VITE_API_BASE_URL must be set at build time (see `frontend/.env.production`).
- * Browsers block HTTPS pages (e.g. beacon.trottdog.com) from calling http://localhost — not a CORS header fix.
+ * Default to same-origin /api in both development and production.
+ * - Development: Vite proxies /api to http://localhost:4000
+ * - Production: Vercel rewrites /api/* to the Azure backend so auth cookies stay first-party
+ * Override with VITE_API_BASE_URL only when you intentionally want a different origin.
  */
 function resolveApiBaseUrl(): string {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim()
@@ -11,19 +13,7 @@ function resolveApiBaseUrl(): string {
     return configured.replace(/\/$/, '')
   }
 
-  if (import.meta.env.DEV) {
-    return '/api'
-  }
-
-  // Production without VITE_API_BASE_URL would default to localhost and break on HTTPS deploys
-  // (browser blocks public sites from Private Network Access / loopback — not fixable with CORS).
-  if (import.meta.env.PROD) {
-    throw new Error(
-      'VITE_API_BASE_URL must be set for production builds (see frontend/.env.production or CI env).',
-    )
-  }
-
-  return 'http://localhost:4000'
+  return '/api'
 }
 
 type ResourceState<T> = {
