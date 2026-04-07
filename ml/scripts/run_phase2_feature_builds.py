@@ -20,7 +20,11 @@ from ml.src.features.resident_features import (
     build_resident_features,
     build_resident_monthly_features,
 )
-from ml.src.features.safehouse_features import build_safehouse_features
+from ml.src.features.safehouse_features import (
+    build_public_impact_features,
+    build_safehouse_features,
+    build_safehouse_monthly_features,
+)
 from ml.src.features.social_features import build_post_features
 
 
@@ -37,6 +41,8 @@ def main() -> None:
         "resident_features": build_resident_features(tables),
         "resident_monthly_features": build_resident_monthly_features(tables),
         "safehouse_features": build_safehouse_features(tables),
+        "safehouse_monthly_features": build_safehouse_monthly_features(tables),
+        "public_impact_features": build_public_impact_features(tables),
     }
 
     for dataset_name, df in datasets.items():

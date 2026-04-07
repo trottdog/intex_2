@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { AppLink } from './ui'
 import { siteImages } from '../siteImages'
 
@@ -11,14 +11,20 @@ export function PublicLayout({
   mobileNavOpen: boolean
   setMobileNavOpen: (open: boolean) => void
 }) {
-  const publicLinks = [
-    ['/', 'Home'],
-    ['/impact', 'Impact'],
-    ['/programs', 'Programs'],
-    ['/about', 'About'],
-    ['/social', 'Social'],
-    ['/donate', 'Donate'],
-    ['/login', 'Login'],
+  const [aboutMenuOpen, setAboutMenuOpen] = useState(false)
+  const pathname = window.location.pathname
+  const organizationActive = pathname === '/about' || pathname === '/about/organization'
+  const meetUsActive = pathname === '/about/meet-us'
+
+  const primaryLinks = [
+    { to: '/', label: 'Home' },
+    { to: '/impact', label: 'Impact' },
+    { to: '/social', label: 'Social' },
+  ] as const
+
+  const secondaryLinks = [
+    { to: '/donate', label: 'Donate' },
+    { to: '/login', label: 'Login' },
   ] as const
 
   return (
@@ -32,8 +38,53 @@ export function PublicLayout({
           </div>
         </AppLink>
         <nav className={`top-nav ${mobileNavOpen ? 'open' : ''}`}>
-          {publicLinks.map(([to, label]) => (
-            <AppLink key={to} to={to}>
+          {primaryLinks.map(({ to, label }) => (
+            <AppLink key={to} to={to} className={pathname === to ? 'active' : undefined}>
+              {label}
+            </AppLink>
+          ))}
+          <div
+            className={`about-nav-group${aboutMenuOpen ? ' open' : ''}`}
+            onMouseEnter={() => setAboutMenuOpen(true)}
+            onMouseLeave={() => setAboutMenuOpen(false)}
+          >
+            <div className="about-nav-trigger">
+              <AppLink to="/about" className="about-nav-link">
+                About Us
+              </AppLink>
+              <button
+                className="about-nav-toggle"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={aboutMenuOpen}
+                aria-label="Toggle About Us menu"
+                onClick={() => setAboutMenuOpen((open) => !open)}
+              >
+                <span className="about-nav-caret" aria-hidden="true">▾</span>
+              </button>
+            </div>
+            <div
+              className="about-nav-menu"
+              role="menu"
+              aria-label="About Us"
+              onClick={() => setAboutMenuOpen(false)}
+            >
+              <AppLink
+                to="/about/organization"
+                className={organizationActive ? 'active' : undefined}
+              >
+                Organization
+              </AppLink>
+              <AppLink
+                to="/about/meet-us"
+                className={meetUsActive ? 'active' : undefined}
+              >
+                Meet Us
+              </AppLink>
+            </div>
+          </div>
+          {secondaryLinks.map(({ to, label }) => (
+            <AppLink key={to} to={to} className={pathname === to ? 'active' : undefined}>
               {label}
             </AppLink>
           ))}

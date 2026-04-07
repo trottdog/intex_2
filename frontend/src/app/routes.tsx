@@ -4,8 +4,8 @@ import { matchPath } from './router'
 
 import { HomePage } from '../pages/public/HomePage'
 import { ImpactPage } from '../pages/public/ImpactPage'
-import { ProgramsPage } from '../pages/public/ProgramsPage'
-import { AboutPage } from '../pages/public/AboutPage'
+import { OrganizationPage } from '../pages/public/OrganizationPage'
+import { MeetUsPage } from '../pages/public/MeetUsPage'
 import { SocialPage } from '../pages/public/SocialPage'
 import { DonatePage } from '../pages/public/DonatePage'
 import { LoginPage } from '../pages/public/LoginPage'
@@ -140,8 +140,10 @@ export function resolveRoute(pathname: string, role: UserRole) {
   }> = [
     { path: '/', kind: 'public', render: () => <HomePage /> },
     { path: '/impact', kind: 'public', render: () => <ImpactPage /> },
-    { path: '/programs', kind: 'public', render: () => <ProgramsPage /> },
-    { path: '/about', kind: 'public', render: () => <AboutPage /> },
+    { path: '/programs', kind: 'public', render: () => <OrganizationPage /> },
+    { path: '/about', kind: 'public', render: () => <OrganizationPage /> },
+    { path: '/about/organization', kind: 'public', render: () => <OrganizationPage /> },
+    { path: '/about/meet-us', kind: 'public', render: () => <MeetUsPage /> },
     { path: '/social', kind: 'public', render: () => <SocialPage /> },
     { path: '/donate', kind: 'public', render: () => <DonatePage /> },
     { path: '/login', kind: 'public', render: () => <LoginPage /> },

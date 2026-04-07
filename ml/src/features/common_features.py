@@ -15,6 +15,8 @@ DATASET_SOURCE_MAP: dict[str, str] = {
     "resident_features": "residents, safehouses, process_recordings, home_visitations, intervention_plans, incident_reports, education_records, health_wellbeing_records",
     "resident_monthly_features": "residents, process_recordings, home_visitations, intervention_plans, incident_reports, education_records, health_wellbeing_records",
     "safehouse_features": "safehouses, residents, donation_allocations, safehouse_monthly_metrics, incident_reports",
+    "safehouse_monthly_features": "safehouses, safehouse_monthly_metrics, donation_allocations",
+    "public_impact_features": "public_impact_snapshots, safehouse_monthly_metrics, donation_allocations, donations",
 }
 
 

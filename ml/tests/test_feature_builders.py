@@ -8,6 +8,11 @@ from ml.src.features.resident_features import (
     build_resident_features,
     build_resident_monthly_features,
 )
+from ml.src.features.safehouse_features import (
+    build_public_impact_features,
+    build_safehouse_features,
+    build_safehouse_monthly_features,
+)
 from ml.src.features.social_features import build_post_features
 
 
@@ -53,3 +58,31 @@ def test_resident_feature_tables_capture_expected_label_balance() -> None:
     assert int(
         resident_monthly_features["label_reintegration_complete_next_90d"].sum()
     ) == 36
+    assert "label_case_prioritization_next_60d" in resident_monthly_features.columns
+    assert "label_counseling_progress_next_90d" in resident_monthly_features.columns
+    assert "label_education_improvement_next_120d" in resident_monthly_features.columns
+    assert "label_wellbeing_deterioration_next_90d" in resident_monthly_features.columns
+    assert "label_supportive_home_visit_next_120d" in resident_monthly_features.columns
+    assert int(resident_monthly_features["label_case_prioritization_next_60d"].sum()) > 0
+    assert int(resident_monthly_features["label_counseling_progress_next_90d"].sum()) > 0
+    assert int(resident_monthly_features["label_education_improvement_next_120d"].sum()) > 0
+    assert int(resident_monthly_features["label_wellbeing_deterioration_next_90d"].sum()) > 0
+    assert int(resident_monthly_features["label_supportive_home_visit_next_120d"].sum()) > 0
+
+
+def test_safehouse_feature_tables_capture_phase_e_outputs() -> None:
+    tables = load_raw_tables()
+    safehouse_features = build_safehouse_features(tables)
+    safehouse_monthly_features = build_safehouse_monthly_features(tables)
+    public_impact_features = build_public_impact_features(tables)
+
+    assert len(safehouse_features) == 9
+    assert len(safehouse_monthly_features) == 450
+    assert len(public_impact_features) == 50
+    assert "label_capacity_pressure_next_month" in safehouse_monthly_features.columns
+    assert "label_next_active_residents" in safehouse_monthly_features.columns
+    assert "label_next_public_donations_total_for_month" in public_impact_features.columns
+    assert "label_next_public_avg_health_score" in public_impact_features.columns
+    assert int(safehouse_monthly_features["label_capacity_pressure_next_month"].sum()) > 0
+    assert int(safehouse_monthly_features["future_window_complete_1m"].sum()) > 0
+    assert public_impact_features["label_next_public_donations_total_for_month"].notna().sum() > 0

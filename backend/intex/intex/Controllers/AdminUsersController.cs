@@ -92,7 +92,7 @@ public class AdminUsersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, [FromBody] UpdateUserBody body, CancellationToken ct)
+    public async Task<ActionResult<AdminUserRow>> Update(string id, [FromBody] UpdateUserBody body, CancellationToken ct)
     {
         var user = await _userManager.FindByIdAsync(id);
         if (user is null)
@@ -105,6 +105,14 @@ public class AdminUsersController : ControllerBase
         {
             return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
         }
+
+        var status = NormalizeStatus(body.Status);
+        if (status is null)
+        {
+            return BadRequest(new { error = "Status must be active or locked." });
+        }
+
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
         user.FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim();
         var update = await _userManager.UpdateAsync(user);
@@ -137,9 +145,6 @@ public class AdminUsersController : ControllerBase
             }
         }
 
-        await _db.SaveChangesAsync(ct);
-
-        var status = (body.Status ?? "active").Trim().ToLowerInvariant();
         if (status == "locked")
         {
             var lockoutEnabled = await _userManager.SetLockoutEnabledAsync(user, true);
@@ -163,8 +168,11 @@ public class AdminUsersController : ControllerBase
             }
         }
 
-        // Return success immediately after persistence; callers reload the user list separately.
-        return NoContent();
+        await _db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        var updated = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
+        return Ok(await MapUserAsync(updated, ct));
     }
 
     [HttpDelete("{id}")]
@@ -206,6 +214,15 @@ public class AdminUsersController : ControllerBase
             "donor" => IntexRoles.Donor,
             _ => null,
         };
+    }
+
+    private static string? NormalizeStatus(string? raw)
+    {
+        var status = string.IsNullOrWhiteSpace(raw)
+            ? "active"
+            : raw.Trim().ToLowerInvariant();
+
+        return status is "active" or "locked" ? status : null;
     }
 
     private async Task<AdminUserRow> MapUserAsync(ApplicationUser u, CancellationToken ct)

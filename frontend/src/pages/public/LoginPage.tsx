@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSession, mapMeToSessionUser } from '../../app/session'
-import { Surface } from '../../components/ui'
+import { AppLink } from '../../components/ui'
 import { fetchMe, loginRequestWithMfa } from '../../lib/authApi'
 import { navigate } from '../../utils/navigation'
 
@@ -8,7 +8,6 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
   const { signIn } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false)
   const [useRecoveryCode, setUseRecoveryCode] = useState(false)
   const [twoFactorCode, setTwoFactorCode] = useState('')
@@ -38,165 +37,195 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
 
   return (
     <div className="public-page">
-      <section className="page-hero compact">
-        <span className="eyebrow">Login</span>
-        <h1>Enter the protected Beacon workspace.</h1>
-        <p>
-          Sign in with your account from the API. If your account has MFA enabled, you will complete a second verification step with an authenticator code or recovery code.
-        </p>
-      </section>
-
-      {redirectNotice ? (
-        <div className="source-note">
-          You tried to open a protected route. Sign in below to continue.
+      <section className="login-shell" aria-labelledby="login-heading">
+        <div className="login-intro">
+          <span className="eyebrow">Login</span>
+          <h1 id="login-heading">Sign in to Beacon</h1>
+          <p>Access the protected workspace for Beacon staff and partners.</p>
+          <p className="login-mission-line">Supporting mission-centered nonprofit operations.</p>
         </div>
-      ) : null}
 
-      <Surface title="Sign in" subtitle="Use the email and password configured for your environment (see backend seed docs).">
-        <form
-          className="form-grid"
-          onSubmit={async (event) => {
-            event.preventDefault()
-            setError(null)
-            setSubmitting(true)
-            try {
-              if (!requiresTwoFactor) {
-                const response = await loginRequestWithMfa({ email, password })
-                if ('requiresTwoFactor' in response && response.requiresTwoFactor) {
-                  setRequiresTwoFactor(true)
-                  setTwoFactorCode('')
-                  setRecoveryCode('')
-                  setError(null)
-                  return
-                }
+        <div className="login-layout">
+          <aside className="login-context-panel" aria-label="Workspace reassurance">
+            <span className="eyebrow">Workspace access</span>
+            <h2>Clear, secure access for the teams behind the mission.</h2>
+            <p>
+              Beacon helps staff and partners continue care, coordination, and reporting in one trusted workspace.
+            </p>
+            <ul className="login-context-list">
+              <li>Private access for approved staff and partners</li>
+              <li>Calm tools for daily operations and reporting</li>
+              <li>Designed to support care with clarity</li>
+            </ul>
+          </aside>
 
-                await finalizeSession()
-                return
-              }
-
-              const payload = {
-                email,
-                password,
-                rememberMachine,
-                ...(useRecoveryCode
-                  ? { recoveryCode }
-                  : { twoFactorCode }),
-              }
-
-              const response = await loginRequestWithMfa(payload)
-              if ('requiresTwoFactor' in response && response.requiresTwoFactor) {
-                setError(response.message)
-                return
-              }
-
-              await finalizeSession()
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'Sign-in failed.')
-            } finally {
-              setSubmitting(false)
-            }
-          }}
-        >
-          {error ? (
-            <div className="source-note full-span" style={{ borderColor: 'var(--danger, #c0392b)' }}>
-              {error}
-            </div>
-          ) : null}
-          <label className="full-span">
-            Email
-            <input
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              maxLength={254}
-              required
-            />
-          </label>
-          <label className="full-span">
-            Password
-            <div className="password-input-row">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                minLength={12}
-                title="Password must be at least 12 characters"
-                maxLength={128}
-                required
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            <small>Password must be at least 12 characters.</small>
-          </label>
-          {requiresTwoFactor ? (
-            <>
-              <div className="full-span source-note">
-                Two-factor verification is required for this account.
+          <section className="login-card" aria-labelledby="login-card-title">
+            {redirectNotice ? (
+              <div className="login-notice" role="status">
+                Sign in to continue to the page you were trying to reach.
               </div>
-              <label className="checkbox-row full-span">
+            ) : null}
+
+            <div className="login-card-header">
+              <h2 id="login-card-title">Sign in</h2>
+              <p>Use your email and password to continue.</p>
+            </div>
+
+            <form
+              className="login-form"
+              onSubmit={async (event) => {
+                event.preventDefault()
+                setError(null)
+                setSubmitting(true)
+                try {
+                  if (!requiresTwoFactor) {
+                    const response = await loginRequestWithMfa({ email, password })
+                    if ('requiresTwoFactor' in response && response.requiresTwoFactor) {
+                      setRequiresTwoFactor(true)
+                      setUseRecoveryCode(false)
+                      setTwoFactorCode('')
+                      setRecoveryCode('')
+                      setError(null)
+                      return
+                    }
+
+                    await finalizeSession()
+                    return
+                  }
+
+                  const payload = {
+                    email,
+                    password,
+                    rememberMachine,
+                    ...(useRecoveryCode
+                      ? { recoveryCode }
+                      : { twoFactorCode }),
+                  }
+
+                  const response = await loginRequestWithMfa(payload)
+                  if ('requiresTwoFactor' in response && response.requiresTwoFactor) {
+                    setError(response.message)
+                    return
+                  }
+
+                  await finalizeSession()
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Sign-in failed.')
+                } finally {
+                  setSubmitting(false)
+                }
+              }}
+            >
+              {error ? (
+                <div className="login-error" role="alert">
+                  {error}
+                </div>
+              ) : null}
+
+              <label className="login-field">
+                <span>Email</span>
                 <input
-                  type="checkbox"
-                  checked={useRecoveryCode}
-                  onChange={(event) => {
-                    setUseRecoveryCode(event.target.checked)
-                    setError(null)
-                  }}
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  maxLength={254}
+                  required
                 />
-                Use a recovery code instead of an authenticator app code
               </label>
-              {useRecoveryCode ? (
-                <label className="full-span">
-                  Recovery code
-                  <input
-                    type="text"
-                    value={recoveryCode}
-                    onChange={(event) => setRecoveryCode(event.target.value)}
-                    autoComplete="one-time-code"
-                    required
-                  />
-                </label>
-              ) : (
-                <label className="full-span">
-                  Authenticator code
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    value={twoFactorCode}
-                    onChange={(event) => setTwoFactorCode(event.target.value)}
-                    autoComplete="one-time-code"
-                    placeholder="123456"
-                    required
-                  />
-                </label>
-              )}
-              <label className="checkbox-row full-span">
+
+              <label className="login-field">
+                <div className="login-field-row">
+                  <span>Password</span>
+                  <a href="mailto:hello@beacon-operations.org" className="login-inline-link">
+                    Forgot password?
+                  </a>
+                </div>
                 <input
-                  type="checkbox"
-                  checked={rememberMachine}
-                  onChange={(event) => setRememberMachine(event.target.checked)}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  minLength={12}
+                  title="Password must be at least 12 characters"
+                  maxLength={128}
+                  required
                 />
-                Remember this browser after successful MFA verification
+                <small>Password must be at least 12 characters.</small>
               </label>
-            </>
-          ) : null}
-          <button className="primary-button full-span" type="submit" disabled={submitting}>
-            {submitting
-              ? (requiresTwoFactor ? 'Verifying…' : 'Signing in…')
-              : (requiresTwoFactor ? 'Verify and sign in' : 'Sign in')}
-          </button>
-        </form>
-      </Surface>
+
+              {requiresTwoFactor ? (
+                <>
+                  <div className="source-note" role="status">
+                    Two-factor verification is required for this account.
+                  </div>
+
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={useRecoveryCode}
+                      onChange={(event) => {
+                        setUseRecoveryCode(event.target.checked)
+                        setError(null)
+                      }}
+                    />
+                    Use a recovery code instead of an authenticator app code
+                  </label>
+
+                  {useRecoveryCode ? (
+                    <label className="login-field">
+                      <span>Recovery code</span>
+                      <input
+                        type="text"
+                        value={recoveryCode}
+                        onChange={(event) => setRecoveryCode(event.target.value)}
+                        autoComplete="one-time-code"
+                        required
+                      />
+                    </label>
+                  ) : (
+                    <label className="login-field">
+                      <span>Authenticator code</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]{6}"
+                        value={twoFactorCode}
+                        onChange={(event) => setTwoFactorCode(event.target.value)}
+                        autoComplete="one-time-code"
+                        placeholder="123456"
+                        required
+                      />
+                    </label>
+                  )}
+
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={rememberMachine}
+                      onChange={(event) => setRememberMachine(event.target.checked)}
+                    />
+                    Remember this browser after successful MFA verification
+                  </label>
+                </>
+              ) : null}
+
+              <button className="primary-button login-submit" type="submit" disabled={submitting}>
+                {submitting
+                  ? (requiresTwoFactor ? 'Verifying…' : 'Signing in…')
+                  : (requiresTwoFactor ? 'Verify and sign in' : 'Sign in')}
+              </button>
+            </form>
+
+            <p className="login-support-text">
+              Need access? <a href="mailto:hello@beacon-operations.org">Contact Beacon.</a>
+            </p>
+            <p className="login-back-link">
+              <AppLink to="/">Return to the public site</AppLink>
+            </p>
+          </section>
+        </div>
+      </section>
     </div>
   )
 }

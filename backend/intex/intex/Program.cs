@@ -97,6 +97,21 @@ static bool IsTransactionPoolerConnection(string? raw)
     }
 }
 
+static string BuildContentSecurityPolicy()
+{
+    // Current UI uses inline style attributes in many components; keep script sources strict.
+    return string.Join(' ',
+        "default-src 'self';",
+        "base-uri 'self';",
+        "frame-ancestors 'none';",
+        "object-src 'none';",
+        "img-src 'self' data: https:;",
+        "font-src 'self' data:;",
+        "style-src 'self' 'unsafe-inline';",
+        "script-src 'self';",
+        "connect-src 'self' https://beacon.trottdog.com https://www.beacon.trottdog.com http://localhost:5173 http://localhost:3000;");
+}
+
 var npgsqlCs = PoolerSafeNpgsqlConnectionString(builder.Configuration.GetConnectionString("DefaultConnection"));
 var useTxnPooler = IsTransactionPoolerConnection(npgsqlCs);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -225,6 +240,18 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+var cspHeaderValue = BuildContentSecurityPolicy();
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["Content-Security-Policy"] = cspHeaderValue;
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
