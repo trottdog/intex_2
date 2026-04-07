@@ -50,4 +50,4 @@ This matrix reflects the current backend authorization model after the April 202
 ## Verification References
 
 - Controller policies and attributes are asserted by tests in `backend/intex/intex.AuthzTests/AuthorizationAttributesTests.cs`.
-- API runtime behavior should additionally be validated with HTTP integration tests in environments where seeded auth users are available.
+- Runtime HTTP authorization behavior is validated in `backend/intex/intex.AuthzTests/AuthorizationRuntimeTests.cs` via a test host and synthetic role identities (donations, allocations, partners, safehouses, safehouse metrics, and admin-users gates).
