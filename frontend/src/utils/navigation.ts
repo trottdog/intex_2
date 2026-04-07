@@ -67,6 +67,13 @@ export function getNavGroups(role: UserRole) {
           ['/app/donor/profile', 'Profile'],
         ],
       },
+      {
+        title: 'Account',
+        links: [
+          ['/app/account/security', 'Security & session'],
+          ['/app/account/mfa', 'Manage MFA'],
+        ],
+      },
     ]
   }
 
@@ -77,6 +84,7 @@ export function getNavGroups(role: UserRole) {
         links: [
           ['/app/account', 'Profile & settings'],
           ['/app/account/security', 'Security & session'],
+          ['/app/account/mfa', 'Manage MFA'],
         ],
       },
     ]
@@ -104,6 +112,13 @@ export function getNavGroups(role: UserRole) {
           ['/app/super-admin/audit', 'Audit'],
         ],
       },
+      {
+        title: 'Account',
+        links: [
+          ['/app/account/security', 'Security & session'],
+          ['/app/account/mfa', 'Manage MFA'],
+        ],
+      },
     ]
   }
 
@@ -119,6 +134,13 @@ export function getNavGroups(role: UserRole) {
         ['/app/admin/partners', 'Partners'],
         ['/app/admin/reports', 'Reports'],
         ['/app/admin/outreach', 'Outreach'],
+      ],
+    },
+    {
+      title: 'Account',
+      links: [
+        ['/app/account/security', 'Security & session'],
+        ['/app/account/mfa', 'Manage MFA'],
       ],
     },
   ]

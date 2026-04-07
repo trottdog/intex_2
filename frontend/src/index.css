@@ -2073,6 +2073,50 @@ input[aria-invalid='true'] {
   width: auto;
 }
 
+.mfa-setup-grid {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.mfa-qr-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.mfa-key {
+  margin-top: 0.45rem;
+  font-family: var(--font-serif);
+  letter-spacing: 0.08em;
+  color: var(--brand-deep);
+}
+
+.mfa-actions-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.recovery-code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.recovery-code-grid code {
+  display: inline-flex;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
@@ -2198,6 +2242,7 @@ code {
   .feature-band,
   .stat-grid,
   .two-column-grid,
+  .mfa-setup-grid,
   .form-grid,
   .app-shell,
   .impact-stats-grid,
@@ -2284,9 +2329,14 @@ code {
   .resident-header,
   .section-header,
   .surface-header,
-  .stack-row {
+  .stack-row,
+  .mfa-actions-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .recovery-code-grid {
+    grid-template-columns: 1fr;
   }
 
   .align-right {
