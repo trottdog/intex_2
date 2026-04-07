@@ -2,6 +2,7 @@ using System.Text.Json;
 using intex.Data;
 using intex.Data.Entities;
 using intex.Security;
+using intex.Services;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,8 +17,13 @@ namespace intex.Controllers;
 public class MlInsightsController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
+    private readonly IFacilityDataScopeResolver _scopeResolver;
 
-    public MlInsightsController(ApplicationDbContext db) => _db = db;
+    public MlInsightsController(ApplicationDbContext db, IFacilityDataScopeResolver scopeResolver)
+    {
+        _db = db;
+        _scopeResolver = scopeResolver;
+    }
 
     [HttpGet("pipelines")]
     public async Task<IActionResult> ListLatestRuns(CancellationToken ct)
@@ -89,6 +95,7 @@ public class MlInsightsController : ControllerBase
                 modelName = run.ModelName,
                 trainedAt = run.TrainedAt,
                 metrics = ParseJson(run.MetricsJson),
+                manifest = ParseJson(run.ManifestJson),
                 predictions = predictions.Select(ToPredictionPayload),
             });
         }
@@ -102,7 +109,21 @@ public class MlInsightsController : ControllerBase
     [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
     public async Task<IActionResult> GetResidentInsights(long residentId, CancellationToken ct)
     {
-        var pipelineNames = new[] { "resident_risk", "reintegration_readiness" };
+        var scope = await _scopeResolver.ResolveAsync(User, ct);
+        if (!await FacilityAccess.ResidentInScopeAsync(_db, scope, residentId, ct))
+        {
+            return Forbid();
+        }
+
+        var pipelineNames = new[]
+        {
+            "resident_risk",
+            "case_prioritization",
+            "reintegration_readiness",
+            "counseling_progress",
+            "education_improvement",
+            "home_visitation_outcome",
+        };
         var payload = await GetEntityInsights(pipelineNames, residentId, ct);
         return Ok(payload);
     }
@@ -110,7 +131,15 @@ public class MlInsightsController : ControllerBase
     [HttpGet("supporters/{supporterId:long}/insights")]
     public async Task<IActionResult> GetSupporterInsights(long supporterId, CancellationToken ct)
     {
-        if (!IsAdminUser())
+        if (IsAdminUser())
+        {
+            var scope = await _scopeResolver.ResolveAsync(User, ct);
+            if (!scope.IsUnrestricted && !await FacilityAccess.SupporterTouchesScopeAsync(_db, scope, supporterId, ct))
+            {
+                return Forbid();
+            }
+        }
+        else
         {
             if (!User.IsInRole(IntexRoles.Donor))
                 return Forbid();
@@ -120,7 +149,27 @@ public class MlInsightsController : ControllerBase
                 return Forbid();
         }
 
-        var payload = await GetEntityInsights(new[] { "donor_retention" }, supporterId, ct);
+        var payload = await GetEntityInsights(
+            new[] { "donor_retention", "donor_upgrade", "next_donation_amount" },
+            supporterId,
+            ct);
+        return Ok(payload);
+    }
+
+    [HttpGet("safehouses/{safehouseId:long}/insights")]
+    [Authorize(Policy = AuthorizationPolicies.AdminOnly)]
+    public async Task<IActionResult> GetSafehouseInsights(long safehouseId, CancellationToken ct)
+    {
+        var scope = await _scopeResolver.ResolveAsync(User, ct);
+        if (!await FacilityAccess.SafehouseInScopeAsync(_db, scope, safehouseId, ct))
+        {
+            return Forbid();
+        }
+
+        var payload = await GetEntityInsights(
+            new[] { "capacity_pressure", "resource_demand" },
+            safehouseId,
+            ct);
         return Ok(payload);
     }
 
@@ -174,6 +223,7 @@ public class MlInsightsController : ControllerBase
                         modelName = run.ModelName,
                         trainedAt = run.TrainedAt,
                         metrics = ParseJson(run.MetricsJson),
+                        manifest = ParseJson(run.ManifestJson),
                         prediction = ToPredictionPayload(prediction),
                     };
                 })

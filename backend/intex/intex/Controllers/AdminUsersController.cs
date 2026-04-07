@@ -13,11 +13,13 @@ namespace intex.Controllers;
 public class AdminUsersController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
     private readonly ApplicationDbContext _db;
 
-    public AdminUsersController(UserManager<ApplicationUser> userManager, ApplicationDbContext db)
+    public AdminUsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, ApplicationDbContext db)
     {
         _userManager = userManager;
+        _roleManager = roleManager;
         _db = db;
     }
 
@@ -56,6 +58,20 @@ public class AdminUsersController : ControllerBase
             return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
         }
 
+        if (!await _roleManager.RoleExistsAsync(roleName))
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = $"Required Identity role '{roleName}' was not found. Run identity role seed/migrations and retry."
+            });
+        }
+
+        var validatedSafehouseIds = await ValidateSafehouseIdsAsync(roleName, body.SafehouseIds, ct);
+        if (!validatedSafehouseIds.IsValid)
+        {
+            return BadRequest(new { error = validatedSafehouseIds.ErrorMessage });
+        }
+
         var email = body.Email.Trim();
         var user = new ApplicationUser
         {
@@ -71,11 +87,16 @@ public class AdminUsersController : ControllerBase
             return BadRequest(new { error = string.Join("; ", create.Errors.Select(e => e.Description)) });
         }
 
-        await _userManager.AddToRoleAsync(user, roleName);
-
-        if (roleName == IntexRoles.Admin && body.SafehouseIds is { Length: > 0 })
+        var addRole = await _userManager.AddToRoleAsync(user, roleName);
+        if (!addRole.Succeeded)
         {
-            foreach (var sid in body.SafehouseIds.Distinct())
+            await _userManager.DeleteAsync(user);
+            return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
+        }
+
+        if (roleName == IntexRoles.Admin && validatedSafehouseIds.SafehouseIds.Length > 0)
+        {
+            foreach (var sid in validatedSafehouseIds.SafehouseIds)
             {
                 _db.StaffSafehouseAssignments.Add(new StaffSafehouseAssignment
                 {
@@ -106,6 +127,20 @@ public class AdminUsersController : ControllerBase
             return BadRequest(new { error = "Role must be Donor, Admin, or SuperAdmin." });
         }
 
+        if (!await _roleManager.RoleExistsAsync(roleName))
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = $"Required Identity role '{roleName}' was not found. Run identity role seed/migrations and retry."
+            });
+        }
+
+        var validatedSafehouseIds = await ValidateSafehouseIdsAsync(roleName, body.SafehouseIds, ct);
+        if (!validatedSafehouseIds.IsValid)
+        {
+            return BadRequest(new { error = validatedSafehouseIds.ErrorMessage });
+        }
+
         var status = NormalizeStatus(body.Status);
         if (status is null)
         {
@@ -120,24 +155,33 @@ public class AdminUsersController : ControllerBase
         }
 
         var currentRoles = await _userManager.GetRolesAsync(user);
-        var removeRoles = await _userManager.RemoveFromRolesAsync(user, currentRoles);
-        if (!removeRoles.Succeeded)
+        if (!currentRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
         {
-            return BadRequest(new { error = string.Join("; ", removeRoles.Errors.Select(e => e.Description)) });
+            var addRole = await _userManager.AddToRoleAsync(user, roleName);
+            if (!addRole.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
+            }
         }
 
-        var addRole = await _userManager.AddToRoleAsync(user, roleName);
-        if (!addRole.Succeeded)
+        var rolesToRemove = currentRoles
+            .Where(r => !string.Equals(r, roleName, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (rolesToRemove.Length > 0)
         {
-            return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
+            var removeRoles = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+            if (!removeRoles.Succeeded)
+            {
+                return BadRequest(new { error = string.Join("; ", removeRoles.Errors.Select(e => e.Description)) });
+            }
         }
 
         var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
         _db.StaffSafehouseAssignments.RemoveRange(assignments);
 
-        if (roleName == IntexRoles.Admin && body.SafehouseIds is { Length: > 0 })
+        if (roleName == IntexRoles.Admin && validatedSafehouseIds.SafehouseIds.Length > 0)
         {
-            foreach (var sid in body.SafehouseIds.Distinct())
+            foreach (var sid in validatedSafehouseIds.SafehouseIds)
             {
                 _db.StaffSafehouseAssignments.Add(new StaffSafehouseAssignment { UserId = id, SafehouseId = sid });
             }
@@ -284,4 +328,39 @@ public class AdminUsersController : ControllerBase
 
     private static string ResolveStatus(ApplicationUser u) =>
         u.LockoutEnd is { } end && end > DateTimeOffset.UtcNow ? "locked" : u.EmailConfirmed ? "active" : "pending";
+
+    private async Task<(bool IsValid, long[] SafehouseIds, string? ErrorMessage)> ValidateSafehouseIdsAsync(
+        string roleName,
+        long[]? safehouseIds,
+        CancellationToken ct)
+    {
+        if (roleName != IntexRoles.Admin || safehouseIds is not { Length: > 0 })
+        {
+            return (true, [], null);
+        }
+
+        var uniqueIds = safehouseIds
+            .Where(id => id > 0)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToArray();
+
+        if (uniqueIds.Length != safehouseIds.Length)
+        {
+            return (false, [], "SafehouseIds must be unique positive integers.");
+        }
+
+        var existingIds = await _db.Safehouses.AsNoTracking()
+            .Where(s => uniqueIds.Contains(s.SafehouseId))
+            .Select(s => s.SafehouseId)
+            .ToArrayAsync(ct);
+
+        var missingIds = uniqueIds.Except(existingIds).ToArray();
+        if (missingIds.Length > 0)
+        {
+            return (false, [], $"Unknown safehouseIds: {string.Join(", ", missingIds)}.");
+        }
+
+        return (true, uniqueIds, null);
+    }
 }

@@ -93,6 +93,28 @@ ML_TABLE_DDL = (
     """,
 )
 
+SUPPORTER_PIPELINES = {
+    "donor_retention",
+    "donor_upgrade",
+    "next_donation_amount",
+}
+RESIDENT_PIPELINES = {
+    "resident_risk",
+    "reintegration_readiness",
+    "case_prioritization",
+    "counseling_progress",
+    "education_improvement",
+    "home_visitation_outcome",
+}
+POST_PIPELINES = {
+    "best_posting_time",
+    "social_media_conversion",
+}
+SAFEHOUSE_PIPELINES = {
+    "capacity_pressure",
+    "resource_demand",
+}
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI for the nightly ML refresh."""
@@ -199,13 +221,13 @@ def current_scoring_frame(
 
     current = dataset.copy()
 
-    if pipeline_name in {"resident_risk", "reintegration_readiness"}:
+    if pipeline_name in RESIDENT_PIPELINES:
         current["snapshot_month"] = pd.to_datetime(current["snapshot_month"], errors="coerce")
         current = current.loc[~current["case_closed_as_of_snapshot"].fillna(False)]
         current = latest_record_per_group(current, "resident_id", "snapshot_month")
         return current
 
-    if pipeline_name in {"capacity_pressure", "resource_demand"}:
+    if pipeline_name in SAFEHOUSE_PIPELINES:
         current["month_start"] = pd.to_datetime(current["month_start"], errors="coerce")
         current = latest_record_per_group(current, "safehouse_id", "month_start")
         return current
@@ -214,7 +236,12 @@ def current_scoring_frame(
         current = current.loc[current["has_any_donation"].fillna(False)].copy()
         return current
 
-    if pipeline_name == "social_media_conversion":
+    if pipeline_name in {"donor_upgrade", "next_donation_amount"}:
+        current["snapshot_month"] = pd.to_datetime(current["snapshot_month"], errors="coerce")
+        current = latest_record_per_group(current, "supporter_id", "snapshot_month")
+        return current
+
+    if pipeline_name in POST_PIPELINES:
         current["created_at"] = pd.to_datetime(current["created_at"], errors="coerce")
         if current["created_at"].notna().any():
             cutoff = current["created_at"].max() - pd.Timedelta(days=365)
@@ -241,17 +268,74 @@ def context_payload(row: pd.Series, keys: list[str], *, extras: dict[str, Any] |
     return payload
 
 
+def score_payload(row: pd.Series, *, task_type: str) -> dict[str, Any]:
+    """Map scored prediction columns into snapshot-ready value and score fields."""
+
+    prediction = pd.to_numeric(pd.Series([row.get("prediction")]), errors="coerce").iloc[0]
+    score = pd.to_numeric(pd.Series([row.get("prediction_score")]), errors="coerce").iloc[0]
+
+    if task_type == "regression":
+        resolved_score = float(score if pd.notna(score) else prediction)
+        return {
+            "prediction_value": None,
+            "prediction_score": resolved_score,
+        }
+
+    resolved_prediction = int(prediction if pd.notna(prediction) else 0)
+    resolved_score = float(score if pd.notna(score) else resolved_prediction)
+    return {
+        "prediction_value": resolved_prediction,
+        "prediction_score": resolved_score,
+    }
+
+
+def build_supporter_label(supporter_row: pd.Series | None, supporter_id: int, scored: pd.Series) -> str:
+    """Build a readable supporter label for prediction snapshots."""
+
+    if supporter_row is not None:
+        for key in ("display_name", "organization_name"):
+            value = supporter_row.get(key)
+            if pd.notna(value):
+                return str(value)
+
+        first_name = supporter_row.get("first_name")
+        last_name = supporter_row.get("last_name")
+        full_name = " ".join(
+            part for part in [first_name, last_name] if pd.notna(part) and str(part).strip()
+        )
+        if full_name:
+            return full_name
+
+    fallback = scored.get("display_name")
+    if pd.notna(fallback):
+        return str(fallback)
+    return f"Supporter {supporter_id}"
+
+
+def build_post_label(scored: pd.Series) -> str:
+    """Build a readable social-post label for prediction snapshots."""
+
+    label_parts = [str(scored.get("platform") or "Post")]
+    if pd.notna(scored.get("content_topic")):
+        label_parts.append(str(scored.get("content_topic")))
+    elif pd.notna(scored.get("day_of_week")) and pd.notna(scored.get("post_hour")):
+        label_parts.append(f"{scored['day_of_week']} {int(scored['post_hour']):02d}:00")
+    return " · ".join(label_parts)
+
+
 def build_prediction_rows(
     pipeline_name: str,
     scored_df: pd.DataFrame,
     raw_tables: dict[str, pd.DataFrame],
     *,
     prediction_limit: int,
+    task_type: str,
 ) -> list[dict[str, Any]]:
     """Convert scored dataframes into DB-ready prediction snapshots."""
 
     safehouses = raw_tables["safehouses"].set_index("safehouse_id", drop=False)
     residents = raw_tables["residents"].set_index("resident_id", drop=False)
+    supporters = raw_tables["supporters"].set_index("supporter_id", drop=False)
     posts = raw_tables["social_media_posts"].set_index("post_id", drop=False)
 
     ranked = (
@@ -262,38 +346,59 @@ def build_prediction_rows(
 
     rows: list[dict[str, Any]] = []
     for index, (_, scored) in enumerate(ranked.iterrows(), start=1):
-        if pipeline_name == "donor_retention":
+        score_fields = score_payload(scored, task_type=task_type)
+        if pipeline_name in SUPPORTER_PIPELINES:
+            supporter_id = int(scored["supporter_id"])
+            supporter_row = supporters.loc[supporter_id] if supporter_id in supporters.index else None
+            recommended_action_map = {
+                "donor_retention": "Queue donor stewardship outreach within seven days.",
+                "donor_upgrade": "Prioritize this donor for a tailored upgrade conversation or campaign ask.",
+                "next_donation_amount": "Use the forecasted next-gift range to guide ask sizing and follow-up timing.",
+            }
             rows.append(
                 {
                     "entity_type": "supporter",
-                    "entity_id": int(scored["supporter_id"]),
-                    "entity_key": f"supporter:{int(scored['supporter_id'])}",
-                    "entity_label": str(scored.get("display_name") or f"Supporter {int(scored['supporter_id'])}"),
+                    "entity_id": supporter_id,
+                    "entity_key": f"supporter:{supporter_id}",
+                    "entity_label": build_supporter_label(supporter_row, supporter_id, scored),
                     "safehouse_id": None,
                     "record_timestamp": to_python_datetime(
-                        pd.to_datetime(scored.get("last_donation_date") or scored.get("created_at"), errors="coerce")
+                        pd.to_datetime(
+                            scored.get("snapshot_month")
+                            or scored.get("last_donation_date")
+                            or scored.get("created_at"),
+                            errors="coerce",
+                        )
                     ),
-                    "prediction_value": int(scored["prediction"]),
-                    "prediction_score": float(scored["prediction_score"]),
+                    **score_fields,
                     "rank_order": index,
                     "context": context_payload(
                         scored,
                         [
                             "supporter_type",
                             "region",
+                            "status",
                             "acquisition_channel",
                             "donation_count",
+                            "donation_count_lifetime",
                             "donation_recency_days",
                             "total_monetary_amount",
+                            "trailing_180d_total_resolved_value",
+                            "trailing_365d_avg_monetary_amount",
                             "campaign_count",
+                            "campaign_count_lifetime",
                         ],
-                        extras={"recommended_action": "Queue donor stewardship outreach within seven days."},
+                        extras={
+                            "recommended_action": recommended_action_map[pipeline_name],
+                            "prediction_task_type": task_type,
+                            "predicted_value": to_jsonable(scored.get("prediction")),
+                        },
                     ),
                 }
             )
             continue
 
-        if pipeline_name in {"resident_risk", "reintegration_readiness"}:
+        if pipeline_name in RESIDENT_PIPELINES:
             resident_id = int(scored["resident_id"])
             resident_row = residents.loc[resident_id] if resident_id in residents.index else None
             safehouse_id = int(scored["safehouse_id"]) if pd.notna(scored.get("safehouse_id")) else None
@@ -301,7 +406,14 @@ def build_prediction_rows(
             if safehouse_id is not None and safehouse_id in safehouses.index:
                 safehouse_name = safehouses.loc[safehouse_id].get("name")
 
-            is_readiness = pipeline_name == "reintegration_readiness"
+            recommended_action_map = {
+                "resident_risk": "Review the intervention plan and confirm the next case conference agenda.",
+                "reintegration_readiness": "Review reintegration planning milestones and family-readiness steps.",
+                "case_prioritization": "Prioritize this resident for near-term case review and coordinated follow-up.",
+                "counseling_progress": "Reinforce the current counseling plan and watch for momentum changes.",
+                "education_improvement": "Review the education plan and reinforce the support patterns linked to improvement.",
+                "home_visitation_outcome": "Use the visitation signal to guide reintegration planning and family follow-up.",
+            }
             rows.append(
                 {
                     "entity_type": "resident",
@@ -315,8 +427,7 @@ def build_prediction_rows(
                     "record_timestamp": to_python_datetime(
                         pd.to_datetime(scored.get("snapshot_month"), errors="coerce")
                     ),
-                    "prediction_value": int(scored["prediction"]),
-                    "prediction_score": float(scored["prediction_score"]),
+                    **score_fields,
                     "rank_order": index,
                     "context": context_payload(
                         scored,
@@ -330,28 +441,31 @@ def build_prediction_rows(
                             "visit_follow_up_needed_90d",
                             "latest_progress_percent",
                             "avg_attendance_rate_90d",
+                            "latest_enrollment_status",
+                            "visit_avg_family_cooperation_90d",
+                            "process_recent_90d_count",
                         ],
                         extras={
                             "case_control_no": resident_row.get("case_control_no") if resident_row is not None else None,
                             "assigned_social_worker": resident_row.get("assigned_social_worker") if resident_row is not None else None,
                             "safehouse_name": safehouse_name,
-                            "recommended_action": (
-                                "Review reintegration planning milestones and family-readiness steps."
-                                if is_readiness
-                                else "Review the intervention plan and confirm the next case conference agenda."
-                            ),
+                            "recommended_action": recommended_action_map[pipeline_name],
+                            "prediction_task_type": task_type,
+                            "predicted_value": to_jsonable(scored.get("prediction")),
                         },
                     ),
                 }
             )
             continue
 
-        if pipeline_name == "social_media_conversion":
+        if pipeline_name in POST_PIPELINES:
             post_id = int(scored["post_id"])
             post_row = posts.loc[post_id] if post_id in posts.index else None
-            label_parts = [str(scored.get("platform") or "Post")]
-            if scored.get("content_topic"):
-                label_parts.append(str(scored.get("content_topic")))
+            recommended_action_map = {
+                "social_media_conversion": "Promote this content pattern in the next donation appeal brief.",
+                "best_posting_time": "Use this timing window as a leading candidate in the next posting schedule.",
+            }
+            label_parts = [build_post_label(scored)]
             rows.append(
                 {
                     "entity_type": "social_media_post",
@@ -362,14 +476,15 @@ def build_prediction_rows(
                     "record_timestamp": to_python_datetime(
                         pd.to_datetime(scored.get("created_at"), errors="coerce")
                     ),
-                    "prediction_value": int(scored["prediction"]),
-                    "prediction_score": float(scored["prediction_score"]),
+                    **score_fields,
                     "rank_order": index,
                     "context": context_payload(
                         scored,
                         [
                             "platform",
                             "content_topic",
+                            "day_of_week",
+                            "post_hour",
                             "post_type",
                             "engagement_rate",
                             "click_through_rate",
@@ -378,7 +493,62 @@ def build_prediction_rows(
                         ],
                         extras={
                             "post_url": post_row.get("post_url") if post_row is not None else None,
-                            "recommended_action": "Promote this content pattern in the next donation appeal brief.",
+                            "recommended_action": recommended_action_map[pipeline_name],
+                            "prediction_task_type": task_type,
+                            "predicted_value": to_jsonable(scored.get("prediction")),
+                        },
+                    ),
+                }
+            )
+            continue
+
+        if pipeline_name in SAFEHOUSE_PIPELINES:
+            safehouse_id = int(scored["safehouse_id"])
+            safehouse_row = safehouses.loc[safehouse_id] if safehouse_id in safehouses.index else None
+            safehouse_name = (
+                str(scored.get("safehouse_name"))
+                if pd.notna(scored.get("safehouse_name"))
+                else (
+                    str(safehouse_row.get("name"))
+                    if safehouse_row is not None and pd.notna(safehouse_row.get("name"))
+                    else f"Safehouse {safehouse_id}"
+                )
+            )
+            recommended_action_map = {
+                "capacity_pressure": "Review staffing, resident flow, and short-term load balancing for this site.",
+                "resource_demand": "Use the forecast to plan staffing, supplies, and near-term fundraising asks by site.",
+            }
+            rows.append(
+                {
+                    "entity_type": "safehouse",
+                    "entity_id": safehouse_id,
+                    "entity_key": f"safehouse:{safehouse_id}",
+                    "entity_label": safehouse_name,
+                    "safehouse_id": safehouse_id,
+                    "record_timestamp": to_python_datetime(
+                        pd.to_datetime(scored.get("month_start"), errors="coerce")
+                    ),
+                    **score_fields,
+                    "rank_order": index,
+                    "context": context_payload(
+                        scored,
+                        [
+                            "month_start",
+                            "region",
+                            "city",
+                            "status",
+                            "capacity_girls",
+                            "active_residents",
+                            "capacity_utilization_ratio",
+                            "capacity_gap",
+                            "allocation_count_month",
+                            "incident_count",
+                        ],
+                        extras={
+                            "safehouse_name": safehouse_name,
+                            "recommended_action": recommended_action_map[pipeline_name],
+                            "prediction_task_type": task_type,
+                            "predicted_value": to_jsonable(scored.get("prediction")),
                         },
                     ),
                 }
@@ -512,6 +682,7 @@ def publish_pipeline_outputs(
             scored,
             raw_tables,
             prediction_limit=prediction_limit,
+            task_type=str(manifest["task_type"]),
         )
         run_id = insert_pipeline_run(
             conn,
