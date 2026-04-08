@@ -10,6 +10,15 @@ from ml.src.data.loaders import load_raw_tables
 from ml.src.features.common_features import month_start, safe_divide_series
 
 
+def _coerce_numeric_columns(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Normalize mixed numeric/object columns such as Decimal-backed DB values."""
+
+    for column in columns:
+        if column in frame.columns:
+            frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    return frame
+
+
 def build_supporter_features(
     tables: Mapping[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
@@ -21,6 +30,9 @@ def build_supporter_features(
     donations = data["donations"].copy()
     allocations = data["donation_allocations"].copy()
     in_kind_items = data["in_kind_donation_items"].copy()
+    donations = _coerce_numeric_columns(donations, ["amount", "estimated_value"])
+    allocations = _coerce_numeric_columns(allocations, ["amount_allocated"])
+    in_kind_items = _coerce_numeric_columns(in_kind_items, ["quantity", "estimated_unit_value"])
 
     max_donation_date = donations["donation_date"].max()
     donations["resolved_value"] = donations["estimated_value"].fillna(donations["amount"]).fillna(0.0)
@@ -144,6 +156,7 @@ def build_supporter_monthly_features(
 
     supporters = data["supporters"].copy()
     donations = data["donations"].copy()
+    donations = _coerce_numeric_columns(donations, ["amount", "estimated_value"])
     donations["resolved_value"] = donations["estimated_value"].fillna(donations["amount"]).fillna(0.0)
     donations["is_recurring"] = donations["is_recurring"].fillna(False).astype(bool)
 
@@ -284,6 +297,8 @@ def build_campaign_features(
     donations = data["donations"].copy()
     allocations = data["donation_allocations"].copy()
     posts = data["social_media_posts"].copy()
+    donations = _coerce_numeric_columns(donations, ["amount", "estimated_value"])
+    allocations = _coerce_numeric_columns(allocations, ["amount_allocated"])
 
     donations = donations.loc[donations["campaign_name"].notna()].copy()
     posts = posts.loc[posts["campaign_name"].notna()].copy()

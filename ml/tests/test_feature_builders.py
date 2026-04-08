@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from ml.src.data.loaders import load_raw_tables
 from ml.src.features.donor_features import (
     build_campaign_features,
@@ -34,6 +36,24 @@ def test_supporter_monthly_features_include_phase_c_labels() -> None:
     assert int(supporter_monthly["label_donor_upgrade_next_180d"].sum()) > 0
     assert int(supporter_monthly["label_recurring_conversion_next_180d"].sum()) == 0
     assert int(supporter_monthly["label_has_next_monetary_donation_180d"].sum()) > 0
+
+
+def test_supporter_monthly_features_accept_decimal_donation_values() -> None:
+    tables = load_raw_tables()
+    donations = tables["donations"].copy()
+
+    first_monetary_index = donations["amount"].first_valid_index()
+    assert first_monetary_index is not None
+
+    donations.loc[first_monetary_index, "amount"] = Decimal("125.50")
+    donations.loc[first_monetary_index, "estimated_value"] = Decimal("125.50")
+    tables["donations"] = donations
+
+    supporter_monthly = build_supporter_monthly_features(tables)
+
+    assert len(supporter_monthly) >= 1500
+    assert supporter_monthly["total_monetary_amount_lifetime"].notna().all()
+    assert supporter_monthly["total_resolved_value_lifetime"].notna().all()
 
 
 def test_campaign_and_post_features_build_expected_shapes() -> None:
