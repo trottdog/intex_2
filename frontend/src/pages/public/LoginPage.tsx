@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useSession, mapMeToSessionUser } from '../../app/session'
-import { AppLink } from '../../components/ui'
 import { fetchMe, loginRequestWithMfa } from '../../lib/authApi'
 import { navigate } from '../../utils/navigation'
 
@@ -42,19 +41,6 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
           <div className="login-intro">
             <h1 id="login-heading">Sign in to Beacon</h1>
           </div>
-
-          <aside className="login-context-panel" aria-label="Workspace reassurance">
-            <span className="eyebrow">Workspace access</span>
-            <h2>Clear, secure access for the teams behind the mission.</h2>
-            <p>
-              Beacon helps staff and partners continue care, coordination, and reporting in one trusted workspace.
-            </p>
-            <ul className="login-context-list">
-              <li>Private access for approved staff and partners</li>
-              <li>Calm tools for daily operations and reporting</li>
-              <li>Designed to support care with clarity</li>
-            </ul>
-          </aside>
 
           <section className="login-card" aria-labelledby="login-card-title">
             {redirectNotice ? (
@@ -144,11 +130,9 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   minLength={12}
-                  title="Password must be at least 12 characters"
                   maxLength={128}
                   required
                 />
-                <small>Password must be at least 12 characters.</small>
               </label>
 
               {requiresTwoFactor ? (
@@ -216,9 +200,6 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
 
             <p className="login-support-text">
               Need access? <a href="mailto:hello@beacon-operations.org">Contact Beacon.</a>
-            </p>
-            <p className="login-back-link">
-              <AppLink to="/">Return to the public site</AppLink>
             </p>
           </section>
         </div>

@@ -115,7 +115,6 @@ export function PublicLayout({
         <div className="footer-links">
           <AppLink to="/privacy">Privacy</AppLink>
           <AppLink to="/cookies">Cookie preferences</AppLink>
-          <AppLink to="/login">Login</AppLink>
         </div>
       </footer>
     </div>
