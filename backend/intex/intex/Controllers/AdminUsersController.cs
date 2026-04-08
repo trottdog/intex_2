@@ -177,6 +177,8 @@ public class AdminUsersController : ControllerBase
                 return BadRequest(new { error = "Status must be active or locked." });
             }
 
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
             user.FullName = string.IsNullOrWhiteSpace(body.FullName) ? null : body.FullName.Trim();
             var update = await _userManager.UpdateAsync(user);
             if (!update.Succeeded)
@@ -184,27 +186,24 @@ public class AdminUsersController : ControllerBase
                 return BadRequest(new { error = string.Join("; ", update.Errors.Select(e => e.Description)) });
             }
 
-            var currentRoles = await _userManager.GetRolesAsync(user);
-            if (!currentRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
+            var targetRole = await _roleManager.FindByNameAsync(roleName);
+            if (targetRole is null)
             {
-                var addRole = await _userManager.AddToRoleAsync(user, roleName);
-                if (!addRole.Succeeded)
+                return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    return BadRequest(new { error = string.Join("; ", addRole.Errors.Select(e => e.Description)) });
-                }
+                    error = $"Required Identity role '{roleName}' could not be loaded. Run identity role seed/migrations and retry."
+                });
             }
 
-            var rolesToRemove = currentRoles
-                .Where(r => !string.Equals(r, roleName, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-            if (rolesToRemove.Length > 0)
+            var userRoles = await _db.Set<IdentityUserRole<string>>()
+                .Where(link => link.UserId == id)
+                .ToListAsync(ct);
+            _db.Set<IdentityUserRole<string>>().RemoveRange(userRoles);
+            _db.Set<IdentityUserRole<string>>().Add(new IdentityUserRole<string>
             {
-                var removeRoles = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
-                if (!removeRoles.Succeeded)
-                {
-                    return BadRequest(new { error = string.Join("; ", removeRoles.Errors.Select(e => e.Description)) });
-                }
-            }
+                UserId = id,
+                RoleId = targetRole.Id,
+            });
 
             var assignments = await _db.StaffSafehouseAssignments.Where(a => a.UserId == id).ToListAsync(ct);
             _db.StaffSafehouseAssignments.RemoveRange(assignments);
@@ -241,9 +240,18 @@ public class AdminUsersController : ControllerBase
             }
 
             await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
 
-            var updated = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
-            return Ok(await MapUserAsync(updated, ct));
+            try
+            {
+                var updated = await _userManager.Users.AsNoTracking().FirstAsync(u => u.Id == id, ct);
+                return Ok(await MapUserAsync(updated, ct));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Updated admin user {UserId}, but response mapping failed. Returning fallback payload.", id);
+                return Ok(BuildFallbackRow(user, roleName, validatedSafehouseIds.SafehouseIds, status));
+            }
         }
         catch (Exception ex)
         {
@@ -378,6 +386,27 @@ public class AdminUsersController : ControllerBase
 
     private static string ResolveStatus(ApplicationUser u) =>
         u.LockoutEnd is { } end && end > DateTimeOffset.UtcNow ? "locked" : u.EmailConfirmed ? "active" : "pending";
+
+    private static AdminUserRow BuildFallbackRow(ApplicationUser user, string roleName, long[] safehouseIds, string status)
+    {
+        var facilityScope = roleName switch
+        {
+            _ when roleName == IntexRoles.SuperAdmin => "All facilities",
+            _ when roleName == IntexRoles.Donor => "Donor portal",
+            _ when roleName == IntexRoles.Admin && safehouseIds.Length == 0 => "No safehouse assigned",
+            _ when roleName == IntexRoles.Admin => $"Safehouse IDs: {string.Join(", ", safehouseIds)}",
+            _ => "-",
+        };
+
+        return new AdminUserRow(
+            user.Id,
+            user.FullName?.Trim() ?? user.UserName ?? user.Email ?? "User",
+            user.Email,
+            roleName,
+            facilityScope,
+            status,
+            roleName == IntexRoles.Admin ? safehouseIds : null);
+    }
 
     private async Task<(bool IsValid, long[] SafehouseIds, string? ErrorMessage)> ValidateSafehouseIdsAsync(
         string roleName,

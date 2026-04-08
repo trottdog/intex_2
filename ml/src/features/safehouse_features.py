@@ -354,11 +354,13 @@ def build_public_impact_features(
         .reset_index(drop=True)
     )
 
-    # Public reporting snapshots do not always include health or education summaries.
-    # Keep stable canonical columns by backfilling from the operational monthly aggregates.
+    # Public reporting snapshots do not always include every rolled-up summary.
+    # Keep stable canonical columns by backfilling from the operational monthly aggregates
+    # and monthly donation rollups when the public payload omits them.
     for canonical, fallback in (
         ("avg_health_score", "avg_health_score_ops"),
         ("avg_education_progress", "avg_education_progress_ops"),
+        ("donations_total_for_month", "total_resolved_value"),
     ):
         if canonical not in public_impact.columns:
             public_impact[canonical] = public_impact[fallback]

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import type { UserRole } from './session'
 import { matchPath } from './router'
+import { normalizePathname } from '../utils/navigation'
 
 import { HomePage } from '../pages/public/HomePage'
 import { ImpactPage } from '../pages/public/ImpactPage'
@@ -54,9 +55,11 @@ type ResolvedRoute = {
   requiresRole?: UserRole[]
   render: () => ReactElement
   title: string
+  isNotFound?: boolean
 }
 
 export function resolveRoute(pathname: string, role: UserRole) {
+  const normalizedPathname = normalizePathname(pathname)
   const residentSections = [
     {
       pattern: '/app/admin/residents/:residentId/process-recordings',
@@ -100,7 +103,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
   ]
 
   for (const section of residentSections) {
-    const match = matchPath(section.pattern, pathname)
+    const match = matchPath(section.pattern, normalizedPathname)
     if (match) {
       return {
         kind: 'admin',
@@ -111,7 +114,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
     }
   }
 
-  const donationDetailMatch = matchPath('/app/admin/contributions/:donationId', pathname)
+  const donationDetailMatch = matchPath('/app/admin/contributions/:donationId', normalizedPathname)
   if (donationDetailMatch) {
     return {
       kind: 'admin',
@@ -121,7 +124,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
     }
   }
 
-  const donorDetailMatch = matchPath('/app/donor/history/:donationId', pathname)
+  const donorDetailMatch = matchPath('/app/donor/history/:donationId', normalizedPathname)
   if (donorDetailMatch) {
     return {
       kind: 'donor',
@@ -131,7 +134,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
     }
   }
 
-  const safehouseDetailMatch = matchPath('/app/admin/safehouses/:safehouseId', pathname)
+  const safehouseDetailMatch = matchPath('/app/admin/safehouses/:safehouseId', normalizedPathname)
   if (safehouseDetailMatch) {
     return {
       kind: 'admin',
@@ -141,7 +144,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
     }
   }
 
-  const residentDetailMatch = matchPath('/app/admin/residents/:residentId', pathname)
+  const residentDetailMatch = matchPath('/app/admin/residents/:residentId', normalizedPathname)
   if (residentDetailMatch) {
     return {
       kind: 'admin',
@@ -161,7 +164,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
     { path: '/social', kind: 'public', render: () => <SocialPage />, title: 'Social' },
     { path: '/donate', kind: 'public', render: () => <DonatePage />, title: 'Donate' },
     { path: '/login', kind: 'public', render: () => <LoginPage />, title: 'Login' },
-    { path: '/404', kind: 'public', render: () => <NotFoundPage />, title: 'Page Not Found' },
+    { path: '/404', kind: 'public', render: () => <NotFoundPage />, title: 'Page Not Found', isNotFound: true },
     { path: '/privacy', kind: 'public', render: () => <PrivacyPage />, title: 'Privacy' },
     { path: '/cookies', kind: 'public', render: () => <CookiePage />, title: 'Cookies' },
     {
@@ -221,7 +224,7 @@ export function resolveRoute(pathname: string, role: UserRole) {
     { path: '/app/super-admin/audit', kind: 'super-admin', requiresRole: ['super-admin'], render: () => <AuditPage />, title: 'Audit' },
   ]
 
-  const route = staticRoutes.find((item) => item.path === pathname)
+  const route = staticRoutes.find((item) => item.path === normalizedPathname)
   if (route) {
     return route
   }
@@ -230,5 +233,6 @@ export function resolveRoute(pathname: string, role: UserRole) {
     kind: 'public' as const,
     render: () => <NotFoundPage />,
     title: 'Page Not Found',
+    isNotFound: true,
   }
 }

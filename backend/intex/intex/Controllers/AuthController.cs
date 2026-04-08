@@ -170,6 +170,31 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("mfa/setup")]
+    [Authorize]
+    public async Task<IActionResult> GenerateMfaSetup()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user is null)
+        {
+            return Unauthorized(new { error = "Not authenticated." });
+        }
+
+        try
+        {
+            var status = await BuildMfaStatusAsync(user, Array.Empty<string>(), ensureKey: true);
+            return Ok(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to prepare MFA setup for user {UserId}.", user.Id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Unable to prepare MFA setup right now. Please try again."
+            });
+        }
+    }
+
     [HttpPost("mfa/enable")]
     [Authorize]
     public async Task<IActionResult> EnableMfa([FromBody] EnableMfaRequest body)
@@ -328,19 +353,66 @@ public class AuthController : ControllerBase
         };
     }
 
-    private async Task<object> BuildMfaStatusAsync(ApplicationUser user, string[] recoveryCodes)
+    private async Task<object> BuildMfaStatusAsync(ApplicationUser user, string[] recoveryCodes, bool ensureKey = false)
     {
-        var rawKey = await EnsureAuthenticatorKeyAsync(user);
         var email = user.Email ?? user.UserName ?? "beacon-user";
+        string? rawKey = null;
+
+        try
+        {
+            rawKey = ensureKey
+                ? await EnsureAuthenticatorKeyAsync(user)
+                : await _userManager.GetAuthenticatorKeyAsync(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load authenticator key for user {UserId}.", user.Id);
+        }
+
+        bool isTwoFactorEnabled;
+        try
+        {
+            isTwoFactorEnabled = await _userManager.GetTwoFactorEnabledAsync(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load MFA enabled state for user {UserId}.", user.Id);
+            isTwoFactorEnabled = false;
+        }
+
+        var recoveryCodesLeft = 0;
+        if (isTwoFactorEnabled)
+        {
+            try
+            {
+                recoveryCodesLeft = await _userManager.CountRecoveryCodesAsync(user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to count recovery codes for user {UserId}.", user.Id);
+            }
+        }
+
+        bool isMachineRemembered;
+        try
+        {
+            isMachineRemembered = await _signInManager.IsTwoFactorClientRememberedAsync(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load remembered-device MFA state for user {UserId}.", user.Id);
+            isMachineRemembered = false;
+        }
 
         return new
         {
-            sharedKey = FormatAuthenticatorKey(rawKey),
-            authenticatorUri = BuildOtpAuthUri(email, rawKey),
-            recoveryCodesLeft = await _userManager.CountRecoveryCodesAsync(user),
+            sharedKey = string.IsNullOrWhiteSpace(rawKey) ? string.Empty : FormatAuthenticatorKey(rawKey),
+            authenticatorUri = string.IsNullOrWhiteSpace(rawKey) ? string.Empty : BuildOtpAuthUri(email, rawKey),
+            recoveryCodesLeft,
             recoveryCodes,
-            isTwoFactorEnabled = await _userManager.GetTwoFactorEnabledAsync(user),
-            isMachineRemembered = await _signInManager.IsTwoFactorClientRememberedAsync(user),
+            isTwoFactorEnabled,
+            isMachineRemembered,
+            needsSetup = string.IsNullOrWhiteSpace(rawKey),
         };
     }
 

@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react'
 import type { UserRole } from '../app/session'
 
+export function normalizePathname(pathname: string) {
+  if (!pathname || pathname.trim().length === 0) {
+    return '/'
+  }
+
+  const withLeadingSlash = pathname.startsWith('/') ? pathname : `/${pathname}`
+  const collapsed = withLeadingSlash.replace(/\/{2,}/g, '/')
+
+  if (collapsed === '/') {
+    return collapsed
+  }
+
+  return collapsed.replace(/\/+$/g, '') || '/'
+}
+
+export function getCurrentPathname() {
+  return normalizePathname(window.location.pathname)
+}
+
 export function usePathname() {
-  const [pathname, setPathname] = useState(window.location.pathname)
+  const [pathname, setPathname] = useState(getCurrentPathname())
 
   useEffect(() => {
     const handlePopState = () => {
-      setPathname(window.location.pathname)
+      setPathname(getCurrentPathname())
     }
     window.addEventListener('popstate', handlePopState)
     return () => {
@@ -17,13 +36,20 @@ export function usePathname() {
   return pathname
 }
 
-export function navigate(to: string) {
-  window.history.pushState({}, '', to)
+export function navigate(to: string, options?: { replace?: boolean }) {
+  const nextPathname = normalizePathname(to)
+
+  if (options?.replace) {
+    window.history.replaceState({}, '', nextPathname)
+  } else {
+    window.history.pushState({}, '', nextPathname)
+  }
+
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
 export function getBreadcrumbs(pathname: string) {
-  const segments = pathname.split('/').filter(Boolean)
+  const segments = normalizePathname(pathname).split('/').filter(Boolean)
 
   if (segments.length === 0) {
     return [{ label: 'Home' }]

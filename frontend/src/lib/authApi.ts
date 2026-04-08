@@ -30,6 +30,7 @@ export type TwoFactorStatus = {
   recoveryCodes: string[]
   isTwoFactorEnabled: boolean
   isMachineRemembered: boolean
+  needsSetup: boolean
 }
 
 async function authFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -130,6 +131,15 @@ export async function fetchTwoFactorStatus(): Promise<TwoFactorStatus> {
   return normalizeTwoFactorStatus((await res.json()) as Record<string, unknown>)
 }
 
+export async function generateTwoFactorSetup(): Promise<TwoFactorStatus> {
+  const res = await authFetch('/auth/mfa/setup', { method: 'POST' })
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res, 'Failed to prepare MFA setup'))
+  }
+
+  return normalizeTwoFactorStatus((await res.json()) as Record<string, unknown>)
+}
+
 export async function enableTwoFactor(code: string): Promise<TwoFactorStatus> {
   const res = await authFetch('/auth/mfa/enable', {
     method: 'POST',
@@ -183,5 +193,6 @@ function normalizeTwoFactorStatus(body: Record<string, unknown>): TwoFactorStatu
       : [],
     isTwoFactorEnabled: body.isTwoFactorEnabled === true,
     isMachineRemembered: body.isMachineRemembered === true,
+    needsSetup: body.needsSetup === true,
   }
 }

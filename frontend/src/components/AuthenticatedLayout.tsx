@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import type { SessionUser } from '../app/session'
 import { AppLink, Breadcrumbs } from './ui'
 import { siteImages } from '../siteImages'
-import { getBreadcrumbs, getNavGroups, navigate } from '../utils/navigation'
+import { getBreadcrumbs, getCurrentPathname, getNavGroups, navigate } from '../utils/navigation'
 
 export function AuthenticatedLayout({
   user,
@@ -18,7 +18,8 @@ export function AuthenticatedLayout({
   signOut: () => void | Promise<void>
 }) {
   const navGroups = getNavGroups(user.role)
-  const breadcrumbs = getBreadcrumbs(window.location.pathname)
+  const pathname = getCurrentPathname()
+  const breadcrumbs = getBreadcrumbs(pathname)
 
   return (
     <div className="app-frame app-shell">
@@ -42,7 +43,7 @@ export function AuthenticatedLayout({
           <div key={group.title} className="sidebar-group">
             <span className="sidebar-group-title">{group.title}</span>
             {group.links.map(([to, label]) => (
-              <AppLink key={to} to={to} className={window.location.pathname === to ? 'active' : undefined}>
+              <AppLink key={to} to={to} className={pathname === to ? 'active' : undefined}>
                 {label}
               </AppLink>
             ))}

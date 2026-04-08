@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { AppLink } from './ui'
 import { siteImages } from '../siteImages'
+import { getCurrentPathname } from '../utils/navigation'
 
 export function PublicLayout({
   children,
@@ -12,7 +13,7 @@ export function PublicLayout({
   setMobileNavOpen: (open: boolean) => void
 }) {
   const [aboutMenuOpen, setAboutMenuOpen] = useState(false)
-  const pathname = window.location.pathname
+  const pathname = getCurrentPathname()
   const organizationActive = pathname === '/about' || pathname === '/about/organization'
   const meetUsActive = pathname === '/about/meet-us'
   const showFloatingDonate = pathname !== '/login'

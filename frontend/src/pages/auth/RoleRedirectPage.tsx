@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import type { UserRole } from '../../app/session'
 import { Surface } from '../../components/ui'
-import { navigate } from '../../utils/navigation'
+import { getCurrentPathname, navigate } from '../../utils/navigation'
 
 export function RoleRedirectPage({ role }: { role: UserRole }) {
   useEffect(() => {
-    if (window.location.pathname !== '/app') {
+    if (getCurrentPathname() !== '/app') {
       return
     }
     const target =

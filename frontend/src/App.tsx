@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SessionProvider, useSession } from './app/session'
 import { resolveRoute } from './app/routes'
-import { usePathname } from './utils/navigation'
+import { navigate, usePathname } from './utils/navigation'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { CookieConsentBanner } from './components/CookieConsentBanner'
 import { PublicLayout } from './components/PublicLayout'
 import { AuthenticatedLayout } from './components/AuthenticatedLayout'
-import { LoginPage } from './pages/public/LoginPage'
-import { ForbiddenPage } from './pages/auth/ForbiddenPage'
 
 function App() {
   return (
@@ -22,12 +20,24 @@ function App() {
 
 function BeaconApp() {
   const pathname = usePathname()
-  const { user, sessionStatus, signOut } = useSession()
+  const previousPathname = useRef(pathname)
+  const { user, sessionStatus, signOut, refreshSession } = useSession()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     setMobileNavOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    if (pathname === previousPathname.current) {
+      return
+    }
+
+    previousPathname.current = pathname
+    if (pathname.startsWith('/app')) {
+      void refreshSession()
+    }
+  }, [pathname, refreshSession])
 
   const shell = resolveRoute(pathname, user?.role ?? 'public')
 
@@ -36,6 +46,27 @@ function BeaconApp() {
   }, [shell.title])
 
   const protectedArea = pathname.startsWith('/app')
+  const shouldRedirectHome =
+    sessionStatus !== 'loading'
+    && pathname !== '/'
+    && (
+      shell.isNotFound === true
+      || (protectedArea && (sessionStatus === 'anonymous' || !user))
+      || (shell.requiresRole !== undefined && user !== null && !shell.requiresRole.includes(user.role))
+    )
+
+  useEffect(() => {
+    if (!shouldRedirectHome) {
+      return
+    }
+
+    navigate('/', { replace: true })
+  }, [shouldRedirectHome])
+
+  if (shouldRedirectHome) {
+    return null
+  }
+
   if (protectedArea) {
     if (sessionStatus === 'loading') {
       return (
@@ -48,26 +79,6 @@ function BeaconApp() {
         </PublicLayout>
       )
     }
-    if (sessionStatus === 'anonymous' || !user) {
-      return (
-        <PublicLayout mobileNavOpen={mobileNavOpen} setMobileNavOpen={setMobileNavOpen}>
-          <LoginPage redirectNotice />
-        </PublicLayout>
-      )
-    }
-  }
-
-  if (shell.requiresRole && user && !shell.requiresRole.includes(user.role)) {
-    return (
-      <AuthenticatedLayout
-        user={user}
-        mobileNavOpen={mobileNavOpen}
-        setMobileNavOpen={setMobileNavOpen}
-        signOut={signOut}
-      >
-        <ForbiddenPage />
-      </AuthenticatedLayout>
-    )
   }
 
   if (shell.kind === 'public') {

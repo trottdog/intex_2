@@ -19,9 +19,11 @@ import {
 } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
 import { asRecord } from '../../utils/helpers'
+import { getCurrentPathname } from '../../utils/navigation'
 import { canSessionUserAccessResident } from '../../utils/sessionFilters'
 
 export function ResidentDetailPage({ residentId }: { residentId: number }) {
+  const pathname = getCurrentPathname()
   const { user } = useSession()
   const residentResource = useApiResource<Resident | null>(`/residents/${residentId}`, null)
   const residentInsights = useApiResource<MlEntityInsight[]>(`/ml/residents/${residentId}/insights`, [])
@@ -91,7 +93,7 @@ export function ResidentDetailPage({ residentId }: { residentId: number }) {
       </div>
       <nav className="tab-nav">
         {residentLinks.map(([label, to]) => (
-          <AppLink key={to} to={to} className={window.location.pathname === to ? 'active' : undefined}>
+          <AppLink key={to} to={to} className={pathname === to ? 'active' : undefined}>
             {label}
           </AppLink>
         ))}

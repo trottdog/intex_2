@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { navigate } from '../utils/navigation'
 
 export function AppLink({
   to,
@@ -25,8 +26,7 @@ export function AppLink({
         }
 
         event.preventDefault()
-        window.history.pushState({}, '', to)
-        window.dispatchEvent(new PopStateEvent('popstate'))
+        navigate(to)
       }}
     >
       {children}
