@@ -40,6 +40,34 @@ def test_run_classification_baselines_returns_all_expected_models() -> None:
     assert all(math.isfinite(float(result.metrics["accuracy"])) for result in results)
 
 
+def test_run_classification_baselines_support_multiclass_targets() -> None:
+    X, y = make_classification(
+        n_samples=90,
+        n_features=6,
+        n_informative=4,
+        n_redundant=0,
+        n_classes=3,
+        n_clusters_per_class=1,
+        random_state=42,
+    )
+    train_features = pd.DataFrame(X[:70])
+    test_features = pd.DataFrame(X[70:])
+    y_train = pd.Series(y[:70])
+    y_test = pd.Series(y[70:])
+
+    results = run_classification_baselines(
+        train_features,
+        y_train,
+        test_features,
+        y_test,
+    )
+
+    assert all(math.isfinite(float(result.metrics["accuracy"])) for result in results)
+    assert all(math.isfinite(float(result.metrics["precision"])) for result in results)
+    assert all(math.isfinite(float(result.metrics["recall"])) for result in results)
+    assert all(math.isfinite(float(result.metrics["f1"])) for result in results)
+
+
 def test_run_regression_baselines_returns_all_expected_models() -> None:
     X, y = make_regression(
         n_samples=80,

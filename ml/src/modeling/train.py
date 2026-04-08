@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier, DummyRegressor
@@ -36,7 +37,7 @@ class BaselineRunResult:
     model: object
     metrics: dict[str, float]
     predictions: pd.Series
-    scores: pd.Series | None = None
+    scores: pd.Series | np.ndarray | None = None
 
 
 def encode_features(
@@ -224,11 +225,15 @@ def run_classification_baselines(
             dtype="int64",
         )
         if hasattr(estimator, "predict_proba"):
-            scores = pd.Series(
-                estimator.predict_proba(test_features)[:, 1],
-                index=test_features.index,
-                dtype="float64",
-            )
+            probabilities = estimator.predict_proba(test_features)
+            if probabilities.ndim == 2 and probabilities.shape[1] == 2:
+                scores = pd.Series(
+                    probabilities[:, 1],
+                    index=test_features.index,
+                    dtype="float64",
+                )
+            else:
+                scores = probabilities.astype(float)
         elif hasattr(estimator, "decision_function"):
             scores = pd.Series(
                 estimator.decision_function(test_features),

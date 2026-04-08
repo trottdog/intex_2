@@ -120,7 +120,11 @@ def cross_validate_models(
 
             if task_type == "classification":
                 if hasattr(estimator, "predict_proba"):
-                    scores = estimator.predict_proba(X_test)[:, 1]
+                    probabilities = estimator.predict_proba(X_test)
+                    if probabilities.ndim == 2 and probabilities.shape[1] == 2:
+                        scores = probabilities[:, 1]
+                    else:
+                        scores = probabilities
                 elif hasattr(estimator, "decision_function"):
                     scores = estimator.decision_function(X_test)
                 else:

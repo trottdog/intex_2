@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 
+import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
@@ -18,35 +19,92 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.preprocessing import label_binarize
 
 
 def evaluate_classifier(
     y_true: Iterable[int | bool],
     y_pred: Iterable[int | bool],
-    y_score: Iterable[float] | None = None,
+    y_score: Iterable[float] | Iterable[Iterable[float]] | None = None,
 ) -> dict[str, float]:
-    """Calculate standard binary-classification metrics."""
+    """Calculate classification metrics for binary or multiclass targets."""
 
     true_series = pd.Series(list(y_true)).astype(int)
     pred_series = pd.Series(list(y_pred)).astype(int)
-    score_series = None if y_score is None else pd.Series(list(y_score), dtype=float)
+    class_labels = sorted(true_series.dropna().unique().tolist())
+    is_binary = len(class_labels) <= 2
+
+    score_array: np.ndarray | None = None
+    if y_score is not None:
+        score_array = np.asarray(y_score, dtype=float)
+        if score_array.ndim == 0:
+            score_array = score_array.reshape(1)
 
     metrics = {
         "sample_count": float(len(true_series)),
-        "positive_count": float(true_series.sum()),
-        "positive_rate": float(true_series.mean()),
+        "positive_count": float(true_series.sum()) if is_binary else float("nan"),
+        "positive_rate": float(true_series.mean()) if is_binary else float("nan"),
         "accuracy": float(accuracy_score(true_series, pred_series)),
         "balanced_accuracy": float(balanced_accuracy_score(true_series, pred_series)),
-        "precision": float(precision_score(true_series, pred_series, zero_division=0)),
-        "recall": float(recall_score(true_series, pred_series, zero_division=0)),
-        "f1": float(f1_score(true_series, pred_series, zero_division=0)),
+        "precision": float(
+            precision_score(
+                true_series,
+                pred_series,
+                average="binary" if is_binary else "weighted",
+                zero_division=0,
+            )
+        ),
+        "recall": float(
+            recall_score(
+                true_series,
+                pred_series,
+                average="binary" if is_binary else "weighted",
+                zero_division=0,
+            )
+        ),
+        "f1": float(
+            f1_score(
+                true_series,
+                pred_series,
+                average="binary" if is_binary else "weighted",
+                zero_division=0,
+            )
+        ),
     }
 
-    if score_series is not None and true_series.nunique() > 1:
-        metrics["roc_auc"] = float(roc_auc_score(true_series, score_series))
-        metrics["average_precision"] = float(
-            average_precision_score(true_series, score_series)
-        )
+    if score_array is not None and true_series.nunique() > 1:
+        if is_binary:
+            if score_array.ndim == 2 and score_array.shape[1] >= 2:
+                score_array = score_array[:, 1]
+            if score_array.ndim == 1:
+                metrics["roc_auc"] = float(roc_auc_score(true_series, score_array))
+                metrics["average_precision"] = float(
+                    average_precision_score(true_series, score_array)
+                )
+            else:
+                metrics["roc_auc"] = float("nan")
+                metrics["average_precision"] = float("nan")
+        else:
+            if score_array.ndim == 2 and score_array.shape[1] == len(class_labels):
+                true_binarized = label_binarize(true_series, classes=class_labels)
+                metrics["roc_auc"] = float(
+                    roc_auc_score(
+                        true_binarized,
+                        score_array,
+                        multi_class="ovr",
+                        average="weighted",
+                    )
+                )
+                metrics["average_precision"] = float(
+                    average_precision_score(
+                        true_binarized,
+                        score_array,
+                        average="weighted",
+                    )
+                )
+            else:
+                metrics["roc_auc"] = float("nan")
+                metrics["average_precision"] = float("nan")
     else:
         metrics["roc_auc"] = float("nan")
         metrics["average_precision"] = float("nan")
