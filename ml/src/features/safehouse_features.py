@@ -354,6 +354,17 @@ def build_public_impact_features(
         .reset_index(drop=True)
     )
 
+    # Public reporting snapshots do not always include health or education summaries.
+    # Keep stable canonical columns by backfilling from the operational monthly aggregates.
+    for canonical, fallback in (
+        ("avg_health_score", "avg_health_score_ops"),
+        ("avg_education_progress", "avg_education_progress_ops"),
+    ):
+        if canonical not in public_impact.columns:
+            public_impact[canonical] = public_impact[fallback]
+        else:
+            public_impact[canonical] = public_impact[canonical].fillna(public_impact[fallback])
+
     for column in [
         "total_allocated_amount",
         "allocation_count",
