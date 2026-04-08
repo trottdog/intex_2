@@ -17,6 +17,7 @@ from ml.src.modeling.train import (
     encode_features,
     make_baseline_models,
     run_classification_baselines,
+    run_regression_baselines,
     time_split_data,
 )
 from ml.src.modeling.validation import (
@@ -31,10 +32,17 @@ from ml.src.pipelines.registry import (
 )
 
 
+def resolve_task_type(config: dict[str, object]) -> str:
+    """Infer pipeline task type for legacy Phase 4 configs."""
+
+    return "regression" if str(config.get("selection_metric")) == "r2" else "classification"
+
+
 def evaluate_phase4_pipeline(pipeline_name: str) -> dict[str, pd.DataFrame]:
     """Build Phase 4 validation outputs for one predictive pipeline."""
 
     config = load_predictive_pipeline_config(pipeline_name)
+    task_type = resolve_task_type(config)
     dataset = build_predictive_dataset(pipeline_name, save_output=True)
     train_df, test_df = time_split_data(
         dataset,
@@ -47,17 +55,28 @@ def evaluate_phase4_pipeline(pipeline_name: str) -> dict[str, pd.DataFrame]:
         drop_columns=[config["target"], config["split_col"], *config["drop_cols"]],
     )
 
-    y_train = train_df[config["target"]].astype(int)
-    y_test = test_df[config["target"]].astype(int)
-    models = make_baseline_models(task_type="classification")
+    models = make_baseline_models(task_type=task_type)
+    if task_type == "classification":
+        y_train = train_df[config["target"]].astype(int)
+        y_test = test_df[config["target"]].astype(int)
+        baseline_runs = run_classification_baselines(
+            encoded.train_features,
+            y_train,
+            encoded.test_features,
+            y_test,
+            models=models,
+        )
+    else:
+        y_train = train_df[config["target"]].astype(float)
+        y_test = test_df[config["target"]].astype(float)
+        baseline_runs = run_regression_baselines(
+            encoded.train_features,
+            y_train,
+            encoded.test_features,
+            y_test,
+            models=models,
+        )
 
-    baseline_runs = run_classification_baselines(
-        encoded.train_features,
-        y_train,
-        encoded.test_features,
-        y_test,
-        models=models,
-    )
     comparison = compare_models(
         [{"model_name": run.model_name, **run.metrics} for run in baseline_runs],
         sort_by=str(config["selection_metric"]),
@@ -68,7 +87,7 @@ def evaluate_phase4_pipeline(pipeline_name: str) -> dict[str, pd.DataFrame]:
         encoded.train_features,
         y_train,
         models,
-        task_type="classification",
+        task_type=task_type,
         sort_by=str(config["selection_metric"]),
     )
     cv_summary = cv_result.summary.copy()
@@ -80,18 +99,39 @@ def evaluate_phase4_pipeline(pipeline_name: str) -> dict[str, pd.DataFrame]:
 
     best_model_name = str(comparison.iloc[0]["model_name"])
     best_run = next(run for run in baseline_runs if run.model_name == best_model_name)
-    calibration_bins = build_calibration_table(y_test, best_run.scores)
+    can_calibrate = (
+        task_type == "classification"
+        and isinstance(best_run.scores, pd.Series)
+        and y_test.nunique() == 2
+        and not best_run.scores.empty
+    )
+    if can_calibrate:
+        calibration_bins = build_calibration_table(y_test, best_run.scores)
+        calibration_summary_payload = summarize_calibration(y_test, best_run.scores)
+    else:
+        calibration_bins = pd.DataFrame(
+            columns=[
+                "bin",
+                "count",
+                "min_score",
+                "max_score",
+                "mean_score",
+                "observed_rate",
+                "abs_calibration_error",
+            ]
+        )
+        calibration_summary_payload = {
+            "sample_count": float(len(y_test)),
+            "bin_count": 0.0,
+            "expected_calibration_error": float("nan"),
+            "max_calibration_error": float("nan"),
+            "brier_score": float("nan"),
+        }
+
     calibration_bins.insert(0, "pipeline_name", pipeline_name)
     calibration_bins.insert(1, "model_name", best_model_name)
-
     calibration_summary = pd.DataFrame(
-        [
-            {
-                "pipeline_name": pipeline_name,
-                "model_name": best_model_name,
-                **summarize_calibration(y_test, best_run.scores),
-            }
-        ]
+        [{"pipeline_name": pipeline_name, "model_name": best_model_name, **calibration_summary_payload}]
     )
 
     return {

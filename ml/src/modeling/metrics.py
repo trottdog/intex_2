@@ -137,6 +137,17 @@ def compare_models(results: list[dict[str, object]], *, sort_by: str) -> pd.Data
     if frame.empty:
         return frame
 
+    if sort_by not in frame.columns:
+        numeric_columns = [
+            column
+            for column in frame.columns
+            if column != "model_name" and pd.api.types.is_numeric_dtype(frame[column])
+        ]
+        if numeric_columns:
+            sort_by = numeric_columns[0]
+        else:
+            return frame.reset_index(drop=True)
+
     return frame.sort_values(sort_by, ascending=False).reset_index(drop=True)
 
 
