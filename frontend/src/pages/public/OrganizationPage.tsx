@@ -62,13 +62,13 @@ function SectionHeader({
   title,
   description,
 }: {
-  eyebrow: string
+  eyebrow?: string
   title: string
   description?: string
 }) {
   return (
     <div className="organization-section-header">
-      <span className="eyebrow">{eyebrow}</span>
+      {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
       <h1>{title}</h1>
       {description ? <p>{description}</p> : null}
     </div>
@@ -122,57 +122,66 @@ export function OrganizationPage() {
   return (
     <div className="public-page organization-page">
       <section className="organization-hero">
-        <div className="organization-story">
-          <SectionHeader
-            eyebrow="Our story"
-            title="Why BEACON exists"
-            description="BEACON supports children and survivors through safehouse care, healing, education, and reintegration while connecting care operations, donor trust, and visible outcomes."
-          />
-          <p>
-            Children are referred through rescue and welfare systems into a residential environment designed to restore
-            safety, structure, and trust.
-          </p>
-          <p>
-            From there, BEACON coordinates counseling, health support, education, and reintegration planning so care
-            stays human, visible, and easier to sustain.
-          </p>
-        </div>
-        <div className="organization-hero-visual">
-          <img src={siteImages.impactHero} alt="Children holding hands together on the beach" loading="lazy" />
+        <div className="organization-hero-shell">
+          <div className="organization-story">
+            <SectionHeader
+              title="Why BEACON"
+              description="BEACON supports children and survivors through safehouse care, healing, education, and reintegration while connecting care operations, donor trust, and visible outcomes."
+            />
+            <p>
+              Children are referred through rescue and welfare systems into a residential environment designed to
+              restore safety, structure, and trust.
+            </p>
+            <p>
+              From there, BEACON coordinates counseling, health support, education, and reintegration planning so care
+              stays human, visible, and easier to sustain.
+            </p>
+          </div>
+          <div className="organization-hero-visual">
+            <img src={siteImages.handsCircle} alt="Hands joined together in a circle" loading="lazy" />
+          </div>
         </div>
       </section>
 
       <section className="organization-structure">
-        <div className="organization-section-heading">
-          <span className="eyebrow">How care is structured</span>
-          <h2>A clearer path from safety to healing to reintegration</h2>
-          <p>Care is organized so every stage feels understandable, accountable, and grounded in recovery.</p>
-        </div>
-        <div className="organization-structure-grid">
-          {structure.map(({ title, body, Icon }) => (
-            <article key={title} className="organization-structure-card">
-              <div className="organization-card-icon">
-                <Icon className="organization-card-icon-svg" />
-              </div>
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </article>
-          ))}
+        <div className="organization-structure-shell">
+          <div className="organization-section-heading">
+            <h2>A clearer path from safety to healing to reintegration</h2>
+            <p>Care is organized so every stage feels understandable, accountable, and grounded in recovery.</p>
+          </div>
+          <div className="organization-structure-grid">
+            {structure.map(({ title, body, Icon }) => (
+              <article key={title} className="organization-structure-card">
+                <div className="organization-card-icon">
+                  <Icon className="organization-card-icon-svg" />
+                </div>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="organization-trust">
-        {values.map(({ label, Icon }) => (
-          <div key={label} className="organization-trust-item">
-            <Icon className="organization-card-icon-svg" />
-            <span>{label}</span>
+        <div className="organization-trust-shell">
+          <div className="organization-section-heading organization-trust-heading">
+            <h2>What donors can count on</h2>
+            <p>Clear, consistent commitments that keep care safer for children and confidence higher for supporters.</p>
           </div>
-        ))}
+          <div className="organization-trust-grid">
+            {values.map(({ label, Icon }) => (
+              <div key={label} className="organization-trust-item">
+                <Icon className="organization-card-icon-svg" />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="organization-programs">
         <div className="organization-section-heading">
-          <span className="eyebrow">Programs</span>
           <h2>How care is carried out in practice</h2>
           <p>Caring, healing, and teaching make the model easier to understand without overcomplicating the page.</p>
         </div>

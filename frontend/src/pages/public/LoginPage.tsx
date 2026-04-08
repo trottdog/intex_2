@@ -38,14 +38,11 @@ export function LoginPage({ redirectNotice = false }: { redirectNotice?: boolean
   return (
     <div className="public-page">
       <section className="login-shell" aria-labelledby="login-heading">
-        <div className="login-intro">
-          <span className="eyebrow">Login</span>
-          <h1 id="login-heading">Sign in to Beacon</h1>
-          <p>Access the protected workspace for Beacon staff and partners.</p>
-          <p className="login-mission-line">Supporting mission-centered nonprofit operations.</p>
-        </div>
-
         <div className="login-layout">
+          <div className="login-intro">
+            <h1 id="login-heading">Sign in to Beacon</h1>
+          </div>
+
           <aside className="login-context-panel" aria-label="Workspace reassurance">
             <span className="eyebrow">Workspace access</span>
             <h2>Clear, secure access for the teams behind the mission.</h2>

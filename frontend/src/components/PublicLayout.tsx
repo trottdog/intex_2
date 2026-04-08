@@ -102,7 +102,8 @@ export function PublicLayout({
       <main className="page-main">{children}</main>
       {showFloatingDonate ? (
         <AppLink to="/donate" className="floating-donate-button">
-          Donate
+          <span>Donate</span>
+          <span aria-hidden="true">♥</span>
         </AppLink>
       ) : null}
       <footer className="public-footer">

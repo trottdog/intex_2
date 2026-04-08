@@ -1,13 +1,13 @@
 import { directorPhotos } from '../../siteImages'
 
 const bios: Record<string, string> = {
-  'Julie Hernando': 'Guides Beacon’s mission, care vision, and long-term partnerships with steady stewardship, practical leadership, and a deep commitment to protecting children with dignity and consistency.',
-  'Lance Platt': 'Supports governance and strategy with a practical focus on stewardship, accountability, and durable decision-making that strengthens Beacon’s long-term care and organizational direction.',
-  'Candace Kunze': 'Stewards board operations and communication with clarity, continuity, and care.',
-  'Kalli Kamauoha-Wilson': 'Brings mission-aligned leadership centered on child advocacy and sustainable support.',
-  'Russell J. Osguthorpe': 'Offers values-based guidance that strengthens Beacon’s long-term educational vision.',
-  'Apple Lanman': 'Supports mission-centered growth through service, community care, and thoughtful counsel.',
-  'Steven Shraedel': 'Provides practical leadership support grounded in stewardship and durable organizational care.',
+  'Elena Vance': 'Guides Beacon’s mission, care vision, and long-term partnerships with steady stewardship, practical leadership, and a deep commitment to protecting children with dignity and consistency.',
+  'Marcus Thorne': 'Supports governance and strategy with a practical focus on stewardship, accountability, and durable decision-making that strengthens Beacon’s long-term care and organizational direction.',
+  'Sienna Brooks': 'Stewards board operations and communication with clarity, continuity, and care.',
+  'Amara Okafor': 'Brings mission-aligned leadership centered on child advocacy and sustainable support.',
+  'David Sterling': 'Offers values-based guidance that strengthens Beacon’s long-term educational vision.',
+  'Maya Chen': 'Supports mission-centered growth through service, community care, and thoughtful counsel.',
+  'Julian Voss': 'Provides practical leadership support grounded in stewardship and durable organizational care.',
 }
 
 export function MeetUsPage() {
@@ -17,7 +17,6 @@ export function MeetUsPage() {
   return (
     <div className="public-page meet-us-page">
       <section className="meet-us-intro">
-        <span className="eyebrow">MEET US</span>
         <h1>The people guiding Beacon</h1>
         <p>
           Beacon’s leadership brings steady stewardship, compassionate care, and long-term commitment to protecting
@@ -48,7 +47,6 @@ export function MeetUsPage() {
 
       <section className="meet-us-grid-section">
         <div className="organization-section-heading">
-          <span className="eyebrow">BOARD AND ADVISORS</span>
           <h2>People serving across Beacon</h2>
           <p>Board members and advisors helping steward continuity, accountability, and mission-centered growth.</p>
         </div>
