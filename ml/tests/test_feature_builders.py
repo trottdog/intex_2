@@ -45,6 +45,8 @@ def test_supporter_monthly_features_accept_decimal_donation_values() -> None:
     first_monetary_index = donations["amount"].first_valid_index()
     assert first_monetary_index is not None
 
+    donations["amount"] = donations["amount"].astype(object)
+    donations["estimated_value"] = donations["estimated_value"].astype(object)
     donations.loc[first_monetary_index, "amount"] = Decimal("125.50")
     donations.loc[first_monetary_index, "estimated_value"] = Decimal("125.50")
     tables["donations"] = donations
