@@ -181,12 +181,14 @@ export function SkeletonStackRows({ count = 3 }: { count?: number }) {
 export function ErrorState({
   title,
   description,
+  className,
 }: {
   title: string
   description: string
+  className?: string
 }) {
   return (
-    <div className="error-state">
+    <div className={className ? `error-state ${className}` : 'error-state'}>
       <h3>{title}</h3>
       <p>{description}</p>
     </div>

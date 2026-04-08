@@ -115,7 +115,7 @@ export function ImpactPage() {
       </section>
 
       {!loading && metrics.error ? (
-        <ErrorState title="Could not reach the API" description={metrics.error} />
+        <ErrorState className="error-state--plain" title="Could not reach the API" description={metrics.error} />
       ) : null}
 
       <section className="impact-stats-grid">

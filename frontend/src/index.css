@@ -8,12 +8,12 @@
   --text-soft: #545a58;
   --text-muted: #827f74;
   --border: rgba(194, 196, 191, 0.82);
-  --brand: #4f7d73;
+  --brand: #1F5D5A;
   --brand-deep: #363530;
-  --brand-soft: rgba(79, 125, 115, 0.18);
-  --teal: #4f7d73;
-  --gold: #4f7d73;
-  --accent: #4f7d73;
+  --brand-soft: rgba(31, 93, 90, 0.18);
+  --teal: #1F5D5A;
+  --gold: #1F5D5A;
+  --accent: #1F5D5A;
   --danger: #363530;
   --warning: #827f74;
   --success: #545a58;
@@ -74,7 +74,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgba(79, 125, 115, 0.45);
+  outline: 3px solid rgba(31, 93, 90, 0.45);
   outline-offset: 2px;
 }
 
@@ -121,8 +121,7 @@ textarea {
   gap: 1.5rem;
   padding: 0.86rem max(20px, calc((100% - var(--content-width)) / 2)) 0.78rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(248, 249, 248, 0.78);
-  backdrop-filter: blur(18px);
+  background: var(--bg);
   box-shadow: 0 10px 28px rgba(15, 20, 23, 0.05);
 }
 
@@ -308,7 +307,7 @@ textarea {
   color: var(--bg);
   padding: 0.9rem 1.15rem;
   border-radius: 999px;
-  box-shadow: 0 14px 28px rgba(79, 125, 115, 0.24);
+  box-shadow: 0 14px 28px rgba(31, 93, 90, 0.24);
   transition: all 0.3s ease;
 }
 
@@ -328,12 +327,12 @@ textarea {
     gap: 0.35rem;
     min-height: 44px;
     padding: 0.68rem 0.96rem;
-    border-radius: 999px;
-    background: linear-gradient(135deg, rgba(79, 125, 115, 0.96) 0%, rgba(46, 76, 70, 0.94) 100%);
-    color: var(--bg);
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+	  border-radius: 999px;
+	    background: linear-gradient(135deg, rgba(31, 93, 90, 0.96) 0%, rgba(31, 93, 90, 0.88) 100%);
+	    color: var(--bg);
+	  font-size: 0.9rem;
+	  font-weight: 700;
+	  letter-spacing: 0.01em;
   box-shadow: 0 16px 34px rgba(15, 20, 23, 0.18), 0 8px 18px rgba(248, 249, 248, 0.14) inset;
   border: 1px solid rgba(248, 249, 248, 0.4);
   backdrop-filter: blur(12px);
@@ -341,7 +340,7 @@ textarea {
 }
 
 .floating-donate-button:hover {
-  background: linear-gradient(135deg, rgba(93, 144, 133, 0.98) 0%, rgba(46, 76, 70, 0.98) 100%);
+  background: linear-gradient(135deg, rgba(31, 93, 90, 0.98) 0%, rgba(31, 93, 90, 0.92) 100%);
   transform: translateY(-2px);
   box-shadow: 0 26px 46px rgba(15, 20, 23, 0.28), 0 12px 28px rgba(248, 249, 248, 0.18) inset;
 }
@@ -826,7 +825,7 @@ p {
 .hero-primary-button {
   background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 72%, #000000) 100%);
   color: var(--bg);
-  box-shadow: 0 18px 36px rgba(79, 125, 115, 0.2);
+  box-shadow: 0 18px 36px rgba(31, 93, 90, 0.2);
 }
 
 .hero-primary-button:hover {
@@ -1142,8 +1141,8 @@ p {
   height: clamp(260px, 40vh, 420px);
   border-radius: clamp(18px, 3.5vw, 44px);
   overflow: hidden;
-  border: 6px solid rgba(248, 249, 248, 0.9);
-  box-shadow: 0 18px 48px rgba(15, 20, 23, 0.14);
+  border: 0;
+  box-shadow: none;
 }
 
 .impact-hero-image {
@@ -1185,6 +1184,30 @@ p {
   font-size: clamp(1rem, 1.6vw, 1.2rem);
   max-width: 48ch;
   text-shadow: 0 1px 8px rgba(15, 20, 23, 0.3);
+}
+
+.impact-page .error-state {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  border-radius: 0 !important;
+  padding: 0.75rem 0 !important;
+}
+
+.impact-page .error-state h3,
+.impact-page .error-state p {
+  background: none !important;
+}
+
+.error-state--plain {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  border-radius: 0 !important;
 }
 
 /* Stat cards */
@@ -3230,12 +3253,12 @@ p {
 }
 
 .wwd-icon-safety { background: rgba(192, 57, 43, 0.09); color: #c0392b; }
-.wwd-icon-healing { background: rgba(30, 138, 85, 0.09); color: #1e8a55; }
+.wwd-icon-healing { background: rgba(31, 93, 90, 0.09); color: var(--brand); }
 .wwd-icon-justice { background: rgba(108, 79, 194, 0.09); color: #6c4fc2; }
 .wwd-icon-empowerment { background: rgba(160, 124, 16, 0.09); color: #a07c10; }
 
 .what-we-do-card:first-child {
-  border-color: rgba(79, 125, 115, 0.32);
+  border-color: rgba(31, 93, 90, 0.32);
   box-shadow: 0 22px 48px rgba(15, 20, 23, 0.08);
 }
 
