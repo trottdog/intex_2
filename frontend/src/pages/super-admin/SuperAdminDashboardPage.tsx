@@ -2,7 +2,6 @@ import type { Resident, Safehouse } from '../../data/mockData'
 import { useApiResource } from '../../lib/api'
 import { SkeletonStatCard, StatCard } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
-import { SessionWelcomeBanner } from '../../components/SessionWelcomeBanner'
 
 export function SuperAdminDashboardPage() {
   const safehouses = useApiResource<Safehouse[]>('/safehouses', [])
@@ -11,8 +10,7 @@ export function SuperAdminDashboardPage() {
 
   return (
     <>
-      <SessionWelcomeBanner />
-      <PageSection title="Global dashboard" description="Cross-facility oversight and governance.">
+      <PageSection title="Global dashboard" showEyebrow={false}>
       {anyLoading ? (
         <div className="stat-grid">{Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
       ) : (

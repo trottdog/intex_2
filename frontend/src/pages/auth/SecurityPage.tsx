@@ -1,12 +1,31 @@
+import { useSession } from '../../app/session'
 import { AppLink, Surface } from '../../components/ui'
 import { PageSection } from '../../components/PageSection'
+import { navigate } from '../../utils/navigation'
 
 export function SecurityPage() {
+  const { signOut } = useSession()
+
   return (
     <PageSection
       title="Security and session support"
       description="How the browser talks to the API for sign-in and how the UI should reason about sessions."
     >
+      <Surface title="Session actions" subtitle="Manage the current authenticated browser session.">
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={() => {
+            void (async () => {
+              await signOut()
+              navigate('/login')
+            })()
+          }}
+        >
+          Log out
+        </button>
+      </Surface>
+
       <Surface title="Cookie session (ASP.NET Core Identity)" subtitle="Aligned with the backend auth implementation.">
         <div className="stack-list">
           <div className="stack-row">

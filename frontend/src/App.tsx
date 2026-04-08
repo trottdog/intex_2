@@ -21,7 +21,7 @@ function App() {
 function BeaconApp() {
   const pathname = usePathname()
   const previousPathname = useRef(pathname)
-  const { user, sessionStatus, signOut, refreshSession } = useSession()
+  const { user, sessionStatus, refreshSession } = useSession()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
@@ -100,7 +100,6 @@ function BeaconApp() {
       user={user}
       mobileNavOpen={mobileNavOpen}
       setMobileNavOpen={setMobileNavOpen}
-      signOut={signOut}
     >
       <AppErrorBoundary fallback="section" key={pathname}>
         {shell.render()}
