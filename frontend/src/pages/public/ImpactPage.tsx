@@ -105,10 +105,12 @@ export function ImpactPage() {
   return (
     <div className="public-page impact-page">
       <section className="impact-hero">
-        <img className="impact-hero-image" src={siteImages.impactHero} alt="Children holding hands at the beach" />
-        <div className="impact-hero-overlay">
-          <h1>Our Impact</h1>
-          <p>Real outcomes for residents and safehouses across the Philippines</p>
+        <div className="impact-hero-oval" aria-label="Impact hero">
+          <img className="impact-hero-image" src={siteImages.impactHero} alt="Children holding hands at the beach" />
+          <div className="impact-hero-overlay">
+            <h1>Our Impact</h1>
+            <p>Real outcomes for residents and safehouses across the Philippines</p>
+          </div>
         </div>
       </section>
 
