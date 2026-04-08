@@ -176,7 +176,7 @@ def make_baseline_models(
             "dummy_classifier": DummyClassifier(strategy="prior"),
             "logistic_regression": LogisticRegression(
                 max_iter=2000,
-                solver="liblinear",
+                solver="lbfgs",
                 class_weight="balanced",
                 random_state=random_state,
             ),
